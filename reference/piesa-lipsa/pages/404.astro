@@ -1,0 +1,23 @@
+---
+import Sheet from '../layouts/Sheet.astro';
+import { texts } from '../game/texts.mjs';
+---
+
+<Sheet
+  title={`${texts.notFoundTitle} | FAIGO`}
+  description={texts.notFoundMessage}
+  canonical="https://www.faigo.ro/404.html"
+  noindex
+  refresh="/"
+>
+  <div class="wrap">
+    <section class="lone" aria-labelledby="t-404">
+      <div class="sec-head">
+        <span class="sec-tick" aria-hidden="true"></span>
+        <h1 class="sec-title" id="t-404">{texts.notFoundTitle}</h1>
+        <span class="sec-tick end" aria-hidden="true"></span>
+      </div>
+      <p class="note">{texts.notFoundMessage}</p>
+    </section>
+  </div>
+</Sheet>

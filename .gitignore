@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.astro/
+.wrangler/
+.qa/
+.playwright-cli/
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.idea/
+.superpowers/
+.remember/
+.claude/settings.local.json

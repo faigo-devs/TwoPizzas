@@ -1,0 +1,112 @@
+---
+import { Image } from 'astro:assets';
+import logoLight from '../../src/assets/faigo-logo-light.png';
+import logoDark from '../../src/assets/faigo-logo-dark.png';
+import { t } from '../../src/i18n/utils';
+import { texts } from '../game/texts.mjs';
+import '../styles/single.css';
+import plexLatin from '@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2?url';
+import plexLatinExt from '@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-ext-400-normal.woff2?url';
+import barlowLatin from '@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2?url';
+import barlowLatinExt from '@fontsource/barlow-condensed/files/barlow-condensed-latin-ext-600-normal.woff2?url';
+
+interface Props {
+  title: string;
+  description: string;
+  canonical: string;
+  noindex?: boolean;
+  refresh?: string;
+}
+
+const { title, description, canonical, noindex = false, refresh } = Astro.props;
+const preloadFonts = [plexLatin, plexLatinExt, barlowLatin, barlowLatinExt];
+---
+
+<!doctype html>
+<html lang="ro">
+  <head>
+    <script is:inline>
+      (function () {
+        var html = document.documentElement;
+        html.classList.add('no-transition');
+        try {
+          if (localStorage.getItem('theme') === 'dark') html.classList.add('dark');
+        } catch (error) {}
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            html.classList.remove('no-transition');
+          });
+        });
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {refresh && <meta http-equiv="refresh" content={`0; url=${refresh}`} />}
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow'} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="FAIGO" />
+    <meta property="og:locale" content="ro_RO" />
+    <meta name="twitter:card" content="summary" />
+    {preloadFonts.map((href) => <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />)}
+  </head>
+  <body>
+    <div class="sheet">
+      <header class="top">
+        <div class="wrap top-row">
+          <Image src={logoLight} alt="FAIGO" class="logo logo-light" width={282} height={68} loading="eager" />
+          <Image src={logoDark} alt="FAIGO" class="logo logo-dark" width={282} height={68} loading="eager" />
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-label={texts.themeToggle} title={texts.themeToggle}>
+            <svg class="moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            <svg class="sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+          </button>
+        </div>
+      </header>
+      <main>
+        <slot />
+      </main>
+      <footer class="bottom">
+        <div class="titleblock">
+          <div class="titleblock-logo">
+            <Image src={logoLight} alt="" class="logo-light" width={282} height={68} loading="lazy" />
+            <Image src={logoDark} alt="" class="logo-dark" width={282} height={68} loading="lazy" />
+          </div>
+          <p class="titleblock-identity">
+            <span>{t('footer.identity')}</span>
+            <span class="titleblock-ids">{t('footer.cui')} {t('company.cui')}</span>
+            <span class="titleblock-ids">{t('footer.regCom')} {t('company.regCom')}</span>
+          </p>
+          <p class="titleblock-note">{texts.footerNote}</p>
+        </div>
+      </footer>
+    </div>
+    <script is:inline>
+      document.getElementById('theme-toggle').addEventListener('click', function () {
+        var html = document.documentElement;
+        html.classList.toggle('dark');
+        try {
+          localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+        } catch (error) {}
+      });
+    </script>
+  </body>
+</html>
