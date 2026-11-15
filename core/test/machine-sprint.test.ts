@@ -419,28 +419,44 @@ test('no_new_while_blocked agreement: kept when a helper is promised, broken whe
   assert.equal(agreementOutcome(broken), false);
 });
 
-test('pair_first agreement: a full pair on the large item first keeps it, starting something else breaks it', () => {
+test('pair_first agreement: joining the waiting item or finishing the pairing first keeps it, starting something else breaks it', () => {
   const agreement: Agreement = { type: 'pair_first' };
   const pick = (backlog: WorkItem[]): string[] => {
-    const large = backlog.filter((own) => own.size === 'L').slice(0, 1);
+    const pair = backlog.filter((own) => own.workersNeeded === 2).slice(0, 1);
     const solo = backlog.filter((own) => own.workersNeeded === 1).slice(0, 1);
-    return [...large, ...solo].map((own) => own.id);
+    return [...pair, ...solo].map((own) => own.id);
   };
   const kept = secondSprint(agreement, pick);
-  const largeKept = kept.state.items.find((own) => own.status === 'todo' && own.size === 'L');
-  const soloKept = kept.state.items.find((own) => own.status === 'todo' && own.size !== 'L');
-  assert.ok(largeKept !== undefined && soloKept !== undefined);
-  act(kept, 'p1', { type: 'item.take', itemId: largeKept.id });
-  act(kept, 'p2', { type: 'item.take', itemId: largeKept.id });
+  const pairKept = kept.state.items.find((own) => own.status === 'todo' && own.workersNeeded === 2);
+  const soloKept = kept.state.items.find((own) => own.status === 'todo' && own.workersNeeded === 1);
+  assert.ok(pairKept !== undefined && soloKept !== undefined);
+  act(kept, 'p1', { type: 'item.take', itemId: pairKept.id });
+  act(kept, 'p2', { type: 'item.take', itemId: pairKept.id });
   act(kept, 'p3', { type: 'item.take', itemId: soloKept.id });
   assert.equal(agreementOutcome(kept), true);
   const broken = secondSprint(agreement, pick);
-  const largeBroken = broken.state.items.find((own) => own.status === 'todo' && own.size === 'L');
-  const soloBroken = broken.state.items.find((own) => own.status === 'todo' && own.size !== 'L');
-  assert.ok(largeBroken !== undefined && soloBroken !== undefined);
-  act(broken, 'p1', { type: 'item.take', itemId: largeBroken.id });
+  const pairBroken = broken.state.items.find((own) => own.status === 'todo' && own.workersNeeded === 2);
+  const soloBroken = broken.state.items.find((own) => own.status === 'todo' && own.workersNeeded === 1);
+  assert.ok(pairBroken !== undefined && soloBroken !== undefined);
+  act(broken, 'p1', { type: 'item.take', itemId: pairBroken.id });
   act(broken, 'p3', { type: 'item.take', itemId: soloBroken.id });
   assert.equal(agreementOutcome(broken), false);
+});
+
+test('pair_first agreement: a pair item taken as the first of two is not itself a violation, and a released pair counts as waiting', () => {
+  const agreement: Agreement = { type: 'pair_first' };
+  const pick = (backlog: WorkItem[]): string[] => backlog.filter((own) => own.workersNeeded === 2).slice(0, 3).map((own) => own.id);
+  const room = secondSprint(agreement, pick);
+  const [first, second, third] = room.state.items.filter((own) => own.status === 'todo');
+  assert.ok(first !== undefined && second !== undefined && third !== undefined);
+  act(room, 'p1', { type: 'item.take', itemId: first.id });
+  assert.equal(room.state.iterations[1]?.signals.agreementViolations, 0);
+  act(room, 'p2', { type: 'item.take', itemId: first.id });
+  act(room, 'p3', { type: 'item.take', itemId: second.id });
+  assert.equal(room.state.iterations[1]?.signals.agreementViolations, 0);
+  act(room, 'p2', { type: 'item.leave', itemId: first.id });
+  act(room, 'p4', { type: 'item.take', itemId: third.id });
+  assert.equal(room.state.iterations[1]?.signals.agreementViolations, 1);
 });
 
 test('a free-text agreement is carried to Sprint 2 but never judged', () => {

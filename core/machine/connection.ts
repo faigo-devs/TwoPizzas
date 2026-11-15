@@ -1,5 +1,6 @@
 import { config } from '../config.ts';
 import type { PlayerId, RoomState, ServerAction } from '../types.ts';
+import { arrivalsDue, pendingArrival } from './flow.ts';
 import { dropFromLobby } from './lobby.ts';
 import { endWorkHalf } from './transitions.ts';
 import { releaseAll } from './work.ts';
@@ -59,7 +60,7 @@ function leaveTime(s: RoomState, id: PlayerId): number | null {
 }
 
 /**
- * The next moment the server must call the machine: a hard end, a context switch that passes, or a release.
+ * The next moment the server must call the machine: a hard end, a request arriving, a context switch that passes, or a release.
  */
 export function nextDeadline(s: RoomState): number | null {
   const times: number[] = [];
@@ -67,6 +68,8 @@ export function nextDeadline(s: RoomState): number | null {
   if (phase.kind === 'work' && phase.step === 'running' && phase.timebox.hard && phase.timebox.deadline !== null) {
     times.push(phase.timebox.deadline);
   }
+  const arrival = pendingArrival(s);
+  if (arrival !== null) times.push(arrival);
   for (const player of s.players) {
     if (player.open !== null) times.push(player.open.readyAt);
     const leave = leaveTime(s, player.id);
@@ -99,6 +102,9 @@ function passRoles(s: RoomState): void {
  */
 export function deadline(s: RoomState): Refusal {
   const phase = s.phase;
+  if (phase.kind === 'work' && phase.step === 'running' && s.framework === 'kanban') {
+    arrivalsDue(s, Math.min(s.now, phase.timebox.deadline ?? s.now));
+  }
   if (phase.kind === 'work' && phase.step === 'running' && phase.timebox.hard) {
     if (phase.timebox.deadline !== null && s.now >= phase.timebox.deadline) endWorkHalf(s);
   }

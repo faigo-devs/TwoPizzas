@@ -1,6 +1,6 @@
 import { config } from '../config.ts';
 import type { Agreement, AgreementOutcome, RoomState, WorkItem } from '../types.ts';
-import { currentIteration, doingCount, iterationAt, isBlocked, sanitize, workElapsed } from './util.ts';
+import { currentIteration, doingCount, iterationAt, isBlocked, sanitize, waitsForPair, workElapsed } from './util.ts';
 
 /**
  * The agreement chosen in the previous iteration, tracked while the current one runs; null in the first iteration.
@@ -12,21 +12,6 @@ export function activeAgreement(s: RoomState): Agreement | null {
 
 function violate(s: RoomState): void {
   currentIteration(s).signals.agreementViolations += 1;
-}
-
-function isLarge(item: WorkItem): boolean {
-  return item.size === 'L';
-}
-
-function unstaffedLarge(s: RoomState, started: WorkItem): boolean {
-  return s.items.some(
-    (item) =>
-      item.id !== started.id &&
-      isLarge(item) &&
-      item.iteration === started.iteration &&
-      (item.status === 'doing' ? item.workers.length < item.workersNeeded : item.status === 'todo') &&
-      !(isLarge(started) && item.status === 'todo'),
-  );
 }
 
 /**
@@ -42,7 +27,10 @@ export function onItemStarted(s: RoomState, started: WorkItem): void {
     );
     if (blockedAlone) violate(s);
   }
-  if (agreement.type === 'pair_first' && unstaffedLarge(s, started)) violate(s);
+  if (agreement.type === 'pair_first') {
+    const waiting = s.items.some((item) => item.id !== started.id && waitsForPair(item));
+    if (waiting) violate(s);
+  }
 }
 
 /**
@@ -78,6 +66,7 @@ export function agreementOutcome(s: RoomState): AgreementOutcome | null {
   const agreement = activeAgreement(s);
   if (agreement === null) return null;
   if (agreement.type === 'free') return { agreement, kept: null };
+  if (agreement.type === 'wip_limits_set') return { agreement, kept: currentIteration(s).wipLimits.inProgress !== null };
   return { agreement, kept: currentIteration(s).signals.agreementViolations === 0 };
 }
 

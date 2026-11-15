@@ -66,6 +66,8 @@ export function emptySignals(): Signals {
     maxReviewWaitMs: 0,
     pairWaitMs: 0,
     agreementViolations: 0,
+    inProgressMax: 0,
+    reviewMax: 0,
   };
 }
 

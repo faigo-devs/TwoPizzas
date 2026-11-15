@@ -1,0 +1,133 @@
+name: publish-page
+
+on:
+  workflow_dispatch:
+    inputs:
+      clean_slate:
+        description: Delete every file on the host that is not in this build (first publication only)
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - worker/**
+      - docs/**
+      - reference/**
+      - '**/*.md'
+      - .github/workflows/publish-server.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-page
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: vars.PUBLISH_ENABLED == 'true'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Require the publication secrets and variables
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_REMOTE_DIR: ${{ vars.FTP_REMOTE_DIR }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          missing=""
+          [ -n "$FTP_HOST" ] || missing="$missing secret:FTP_HOST"
+          [ -n "$FTP_USER" ] || missing="$missing secret:FTP_USER"
+          [ -n "$FTP_PASSWORD" ] || missing="$missing secret:FTP_PASSWORD"
+          [ -n "$FTP_REMOTE_DIR" ] || missing="$missing variable:FTP_REMOTE_DIR"
+          [ -n "$SITE_URL" ] || missing="$missing variable:SITE_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::Publication is enabled but these are not set:$missing"
+            exit 1
+          fi
+          case "$SITE_URL" in
+            https://*) ;;
+            *) echo "::error::SITE_URL must start with https://"; exit 1 ;;
+          esac
+          dir="${FTP_REMOTE_DIR%/}/"
+          echo "REMOTE_DIR=$dir" >> "$GITHUB_ENV"
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run check
+
+      - name: Upload dist over FTPS
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: ${{ env.REMOTE_DIR }}
+          dangerous-clean-slate: ${{ inputs.clean_slate == true }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/.well-known/acme-challenge/**
+            **/App_Data/**
+
+      - name: Smoke test the published page
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          site="${SITE_URL%/}"
+          work="$(mktemp -d)"
+          identical=no
+          status=000
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            status="$(curl -sS -o "$work/index.html" -D "$work/headers.txt" -w '%{http_code}' "$site/" || echo 000)"
+            if [ "$status" = "200" ] && cmp -s "$work/index.html" dist/index.html; then
+              identical=yes
+              break
+            fi
+            echo "attempt $attempt: status $status, identical to dist/index.html: no"
+            sleep 5
+          done
+
+          echo "Relevant response headers of $site/:"
+          grep -iE '^(content-security-policy|strict-transport-security|content-type|cache-control):' "$work/headers.txt" || true
+          if ! grep -qi '^content-security-policy:' "$work/headers.txt"; then
+            echo "::warning::The home page response carries no Content-Security-Policy header"
+          fi
+          sts="$(grep -ci '^strict-transport-security:' "$work/headers.txt" || true)"
+          if [ "$sts" -gt 1 ]; then
+            echo "::warning::The home page response carries $sts Strict-Transport-Security headers"
+          fi
+
+          if grep -q '/cdn-cgi/' "$work/index.html" && ! grep -q '/cdn-cgi/' dist/index.html; then
+            echo "::warning::The served page contains a /cdn-cgi/ injection that the build does not have"
+          fi
+
+          missing_status="$(curl -sS -o /dev/null -w '%{http_code}' "$site/smoke-missing-$GITHUB_RUN_ID" || echo 000)"
+          if [ "$missing_status" != "404" ]; then
+            echo "::warning::A missing path answered $missing_status instead of 404"
+          fi
+
+          sync_status="$(curl -sS -o /dev/null -w '%{http_code}' "$site/.ftp-deploy-sync-state.json" || echo 000)"
+          if [ "$sync_status" = "200" ]; then
+            echo "::warning::The upload sync-state file is served publicly"
+          fi
+
+          if [ "$identical" != "yes" ]; then
+            echo "::error::The home page did not become byte-identical to the build (last status $status)"
+            exit 1
+          fi
+          echo "Home page is byte-identical to the build"

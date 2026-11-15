@@ -2,7 +2,11 @@ import { config } from '../config.ts';
 import type {
   HeldInfo,
   InspectView,
+  IterationMetrics,
   ItemView,
+  FlowComparison,
+  KanbanView,
+  ReplenishView,
   Player,
   PlanningView,
   PlayerView,
@@ -18,6 +22,7 @@ import type {
   WorkspaceView,
 } from '../types.ts';
 import { controlsFor } from './controls.ts';
+import { arrivalsTotal, pendingArrival, startBlocked, submitBlocked } from './flow.ts';
 import { latestObservations } from './observations.ts';
 import { rulesFor } from './rules.ts';
 import { helpProposals, helpQuestions } from './help.ts';
@@ -77,6 +82,7 @@ function workspaceView(s: RoomState, p: Player, now: number): WorkspaceView | nu
   if (item === undefined || item.puzzle === null) return null;
   const ready = now >= p.open.readyAt;
   if (p.open.mode === 'work') {
+    const blocked = submitBlocked(s);
     const index = Math.max(0, item.workers.indexOf(p.id));
     const part = item.puzzle.parts[index] ?? item.puzzle.parts[0] ?? null;
     return {
@@ -85,8 +91,9 @@ function workspaceView(s: RoomState, p: Player, now: number): WorkspaceView | nu
       readyAt: p.open.readyAt,
       part: ready ? part : null,
       submission: null,
-      canSubmit: ready && item.status === 'doing' && item.workers.includes(p.id),
+      canSubmit: ready && item.status === 'doing' && item.workers.includes(p.id) && !blocked,
       canVerdict: false,
+      ...(s.framework === 'kanban' ? { submitBlockedByLimit: blocked } : {}),
     };
   }
   const allowed = item.status === 'review' && item.reviewer === p.id;
@@ -111,6 +118,53 @@ function heldInfo(s: RoomState, p: Player): HeldInfo[] {
       ? [{ itemId: item.id, part: item.puzzle.dependencyPart }]
       : [],
   );
+}
+
+function replenishView(s: RoomState): ReplenishView {
+  return {
+    readyMax: config.kanban.readyMax,
+    ready: s.items.filter((item) => item.status === 'todo').length,
+    pool: s.items.filter((item) => item.status === 'backlog').length,
+    limitMin: config.kanban.wipLimitMin,
+    limitMax: config.kanban.wipLimitMax,
+    settingLimits: s.phase.kind === 'plan' && s.phase.step === 'limits',
+  };
+}
+
+function kanbanView(s: RoomState): KanbanView {
+  const state = currentIteration(s);
+  const count = (status: string): number => s.items.filter((item) => item.status === status).length;
+  return {
+    limits: { ...state.wipLimits },
+    ready: count('todo'),
+    inProgress: count('doing'),
+    review: count('review'),
+    done: count('done'),
+    startBlockedByLimit: startBlocked(s),
+    submitBlockedByLimit: submitBlocked(s),
+    nextArrivalAt: pendingArrival(s),
+    arrivalsLeft: state.arrivalsLeft,
+    arrivalsTotal: arrivalsTotal(),
+  };
+}
+
+function comparisonOf(s: RoomState): FlowComparison | null {
+  const first = s.iterations[0]?.metrics ?? null;
+  const second = s.iterations[1]?.metrics ?? null;
+  if (first === null || second === null) return null;
+  const pair = (pick: (own: IterationMetrics) => number | null): { first: number | null; second: number | null } => ({
+    first: pick(first),
+    second: pick(second),
+  });
+  return {
+    throughput: pair((own) => own.throughput),
+    averageCycleMs: pair((own) => own.averageCycleMs),
+    wipMax: pair((own) => own.wipMax),
+    openCount: pair((own) => own.openAges.length),
+    escapedDefects: pair((own) => own.escapedDefects),
+    valueDelivered: pair((own) => own.valueDelivered),
+    limits: { ...(second.wipLimits ?? { inProgress: null, review: null }) },
+  };
 }
 
 function planningView(s: RoomState, p: Player): PlanningView {
@@ -143,13 +197,14 @@ function planningView(s: RoomState, p: Player): PlanningView {
       .reduce((sum, item) => sum + (item.estimate ?? 0), 0),
     previousVelocity: state.signals.previousVelocity,
     estimationStopped: state.estimationStopped,
+    ...(s.framework === 'kanban' ? { replenish: replenishView(s) } : {}),
   };
 }
 
 function inspectView(s: RoomState): InspectView {
   const state = currentIteration(s);
   const step = s.phase.kind === 'inspect' ? s.phase.step : 'card';
-  const shown = step === 'result' || step === 'feedback';
+  const shown = step === 'result' || step === 'feedback' || step === 'flow' || step === 'comparison';
   const metrics = state.metrics;
   return {
     verdicts: state.verdicts.slice(0, state.verdictsRevealed).map((verdict) => ({ ...verdict })),
@@ -160,6 +215,12 @@ function inspectView(s: RoomState): InspectView {
     goalBonus: shown ? metrics?.goalBonus ?? null : null,
     velocity: shown ? metrics?.velocity ?? null : null,
     feedback: step === 'feedback' && state.feedback !== null ? { ...state.feedback } : null,
+    ...(s.framework === 'kanban'
+      ? {
+          flow: step === 'flow' || step === 'comparison' ? JSON.parse(JSON.stringify(metrics)) : null,
+          comparison: step === 'comparison' ? comparisonOf(s) : null,
+        }
+      : {}),
   };
 }
 
@@ -215,6 +276,13 @@ const ScriptSteps = {
   retroSecond: ['card', 'previous', 'notes', 'vote', 'action'],
 } as const;
 
+const KanbanSteps = {
+  planFirst: ['card', 'replenish'],
+  planSecond: ['card', 'replenish', 'limits'],
+  inspectFirst: ['card', 'increment', 'flow'],
+  inspectSecond: ['card', 'increment', 'flow', 'comparison'],
+} as const;
+
 function scriptFor(s: RoomState, p: Player): ScriptStep | null {
   const phase = s.phase;
   if (p.id !== s.facilitatorId) return null;
@@ -224,6 +292,10 @@ function scriptFor(s: RoomState, p: Player): ScriptStep | null {
   if (phase.kind === 'daily') steps = ScriptSteps.daily;
   if (phase.kind === 'inspect') steps = first ? ScriptSteps.inspectFirst : ScriptSteps.inspectSecond;
   if (phase.kind === 'retro') steps = first ? ScriptSteps.retroFirst : ScriptSteps.retroSecond;
+  if (s.framework === 'kanban' && phase.kind === 'plan') steps = first ? KanbanSteps.planFirst : KanbanSteps.planSecond;
+  if (s.framework === 'kanban' && phase.kind === 'inspect') {
+    steps = first ? KanbanSteps.inspectFirst : KanbanSteps.inspectSecond;
+  }
   const position = Math.max(0, steps.indexOf(phase.step));
   return { event: phase.kind, step: phase.step, index: position + 1, total: steps.length };
 }
@@ -236,6 +308,7 @@ export function viewFor(s: RoomState, playerId: string, now: number): PlayerView
   if (p === undefined) throw new Error('unknown player');
   const phase = s.phase;
   const revealed = revealedIds(s);
+  const kanban = s.framework === 'kanban' && s.iterations.length > 0;
   return {
     now,
     code: s.code,
@@ -250,7 +323,8 @@ export function viewFor(s: RoomState, playerId: string, now: number): PlayerView
     script: scriptFor(s, p),
     controls: controlsFor(s, p),
     items: s.items.map((item) => itemView(item, revealed)),
-    limits: null,
+    limits: kanban ? { ...currentIteration(s).wipLimits } : null,
+    kanban: kanban ? kanbanView(s) : null,
     workspace: workspaceView(s, p, now),
     held: heldInfo(s, p),
     planning: phase.kind === 'plan' ? planningView(s, p) : null,

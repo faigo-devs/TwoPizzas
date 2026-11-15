@@ -1,8 +1,13 @@
 import { config } from '../config.ts';
 import type { HelpProposal, HelpQuestion, RetroHelpState, RoomState } from '../types.ts';
-import { currentIteration } from './util.ts';
+import { currentIteration, iterationAt } from './util.ts';
 
 interface Facts {
+  kanban: boolean;
+  iteration: number;
+  inProgressLimit: number | null;
+  limitReached: boolean;
+  throughputUp: boolean;
   players: number;
   accepted: number;
   value: number;
@@ -23,7 +28,14 @@ function factsOf(s: RoomState): Facts {
   const iteration = currentIteration(s);
   const sig = iteration.signals;
   const metrics = iteration.metrics;
+  const limit = iteration.wipLimits.inProgress;
+  const first = iteration.iteration === 2 ? iterationAt(s, 1).metrics : null;
   return {
+    kanban: s.framework === 'kanban',
+    iteration: iteration.iteration,
+    inProgressLimit: limit,
+    limitReached: limit !== null && (sig.inProgressMax ?? 0) >= limit,
+    throughputUp: metrics !== null && first !== null && metrics.throughput > first.throughput,
     players: s.players.length,
     accepted: metrics?.accepted ?? 0,
     value: metrics?.valueDelivered ?? 0,
@@ -76,14 +88,21 @@ export function helpQuestions(s: RoomState): HelpQuestion[] {
   if (facts.unfinished > 0) {
     all.push({
       id: 'unfinished',
-      choices: ['estimates', 'overload', 'blocked', 'other'],
+      choices: facts.kanban ? ['overload', 'blocked', 'review', 'other'] : ['estimates', 'overload', 'blocked', 'other'],
       params: { count: facts.unfinished },
     });
   }
   if (facts.escaped > 0) {
     all.push({ id: 'defects', choices: ['rushed', 'unclear', 'no_time', 'other'], params: { count: facts.escaped } });
   }
-  if (facts.goalMet === false) {
+  if (facts.kanban && facts.inProgressLimit !== null) {
+    all.push({
+      id: 'limits',
+      choices: ['helped', 'too_tight', 'too_loose'],
+      params: { limit: facts.inProgressLimit, reached: facts.limitReached ? 1 : 0 },
+    });
+  }
+  if (!facts.kanban && facts.goalMet === false) {
     all.push({ id: 'goal', choices: ['scope', 'blocked', 'other'], params: { theme: facts.theme } });
   }
   if (facts.planOverrunMs > 0 || facts.dailyOverrunMs > 0) {
@@ -109,7 +128,11 @@ export function helpProposals(s: RoomState, state: RetroHelpState): HelpProposal
     out.push({ id, column, params });
   };
   if (facts.accepted > 0) add('went_well.value', 'went_well', { accepted: facts.accepted, value: facts.value });
-  if (facts.goalMet === true) add('went_well.goal', 'went_well', { theme: facts.theme });
+  if (facts.kanban && facts.inProgressLimit !== null && facts.limitReached) {
+    add('went_well.limits', 'went_well', { limit: facts.inProgressLimit });
+  }
+  if (facts.kanban && facts.throughputUp) add('went_well.throughput', 'went_well', { accepted: facts.accepted });
+  if (!facts.kanban && facts.goalMet === true) add('went_well.goal', 'went_well', { theme: facts.theme });
   if (facts.escaped === 0 && facts.accepted > 0) add('went_well.quality', 'went_well', { accepted: facts.accepted });
   if (answers.wait === 'review' || facts.maxReviewWaitMs >= config.review.waitThresholdMs) {
     add('slowed.review', 'slowed_us', { waitSec: sec(facts.maxReviewWaitMs) });
@@ -125,22 +148,27 @@ export function helpProposals(s: RoomState, state: RetroHelpState): HelpProposal
   }
   if (answers.overload === 'yes' || (answers.overload === undefined && wipIsHigh(facts))) {
     add('slowed.wip', 'slowed_us', { wipMax: facts.wipMax, players: facts.players });
-    add('try.wip', 'try', { suggested: Math.max(config.agreements.wipLimitMin, Math.ceil(facts.players / 2)) });
+    const suggested = Math.max(config.agreements.wipLimitMin, Math.ceil(facts.players / 2));
+    add(facts.kanban ? 'try.limits' : 'try.wip', 'try', { suggested });
   }
   if (facts.unfinished > 0 || answers.unfinished !== undefined) {
     add('slowed.unfinished', 'slowed_us', { count: facts.unfinished });
-    add('try.estimates', 'try');
+    add(facts.kanban ? 'try.finish_first' : 'try.estimates', 'try');
   }
   if (facts.escaped > 0 || answers.defects !== undefined) {
     add('slowed.defects', 'slowed_us', { count: facts.escaped });
     add('try.review_care', 'try');
   }
-  if (facts.goalMet === false) add('slowed.goal', 'slowed_us', { theme: facts.theme });
+  if (answers.limits === 'too_tight') add('slowed.limits', 'slowed_us', { limit: facts.inProgressLimit ?? 0 });
+  if (answers.limits === 'too_loose') add('try.limits', 'try', { suggested: Math.max(config.agreements.wipLimitMin, Math.ceil(facts.players / 2)) });
+  if (!facts.kanban && facts.goalMet === false) add('slowed.goal', 'slowed_us', { theme: facts.theme });
   if (answers.events === 'plan' || facts.planOverrunMs > 0) add('slowed.plan', 'slowed_us', { overrunSec: sec(facts.planOverrunMs) });
   if (answers.events === 'daily' || facts.dailyOverrunMs > 0) add('slowed.daily', 'slowed_us', { overrunSec: sec(facts.dailyOverrunMs) });
   if (answers.next === 'faster') add('try.focus', 'try');
   if (answers.next === 'safer') add('try.review_care', 'try');
-  if (answers.next === 'calmer') add('try.wip', 'try');
+  if (answers.next === 'calmer') {
+    add(facts.kanban ? 'try.limits' : 'try.wip', 'try', facts.kanban ? { suggested: Math.max(config.agreements.wipLimitMin, Math.ceil(facts.players / 2)) } : {});
+  }
   const seen = new Set<string>();
   return out
     .filter((proposal) => {

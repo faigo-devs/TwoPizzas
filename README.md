@@ -1,4 +1,4 @@
-# LGTM
+# Two Pizzas
 
 A free browser game in which a team of 3–6 beginners learns Scrum or Kanban by playing: two short iterations of real
 cooperative work, with Sprint Planning, the Daily Scrum, the Sprint Review and the Sprint Retrospective around them (or

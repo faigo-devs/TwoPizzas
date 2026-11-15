@@ -2,6 +2,7 @@ import { config } from '../config.ts';
 import { createRng } from '../rng.ts';
 import type { EventRecord, IterationNumber, IterationState, PlayerId, RoomState, Theme } from '../types.ts';
 import { sweepOpenWaits } from './agreements.ts';
+import { flowIterationStart, flowResume } from './flow.ts';
 import { observe } from './observations.ts';
 import { at, box, currentIteration, emptySignals, nextConnectedAfter, startBox } from './util.ts';
 
@@ -21,6 +22,7 @@ function newIteration(iteration: IterationNumber, facilitatorId: PlayerId | null
     wipLimits: { inProgress: null, review: null },
     nextArrivalAt: null,
     arrivalsLeft: 0,
+    flowEndedAt: null,
     verdicts: [],
     verdictsRevealed: 0,
     dailySpan: null,
@@ -50,12 +52,13 @@ export function startIteration(s: RoomState, iteration: IterationNumber): void {
     if (next !== undefined) s.facilitatorId = next.id;
   }
   const state = newIteration(iteration, s.facilitatorId);
-  if (iteration === 2) {
+  if (iteration === 2 && s.framework === 'scrum') {
     const first = s.iterations[0];
     state.signals.previousVelocity = first?.metrics?.velocity ?? null;
   }
   s.iterations.push(state);
-  state.goalOptions = chooseGoalOptions(s);
+  if (s.framework === 'kanban') flowIterationStart(s, iteration);
+  else state.goalOptions = chooseGoalOptions(s);
   s.phase = {
     kind: 'plan',
     iteration,
@@ -113,6 +116,7 @@ export function enterDaily(s: RoomState): void {
 export function resumeWork(s: RoomState): void {
   const state = currentIteration(s);
   if (state.dailySpan !== null) state.dailySpan.to = s.now;
+  flowResume(s, state);
   const timebox = box(config.timeboxMs.workHalf, isHard(config.phaseEnds.work));
   startBox(timebox, s.now);
   s.phase = { kind: 'work', iteration: state.iteration, half: 2, timebox, step: 'running' };
@@ -152,6 +156,7 @@ export function endWorkHalf(s: RoomState): void {
     enterDaily(s);
     return;
   }
+  currentIteration(s).flowEndedAt = s.phase.timebox.deadline ?? s.now;
   sweepOpenWaits(s);
   observe(s, 'work');
   enterInspect(s);

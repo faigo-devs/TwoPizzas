@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"core/test/*.test.ts\" \"app/i18n/test/*.test.ts\"",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "node scripts/check-dist.mjs"
   },
   "dependencies": {
     "@astrojs/preact": "^6.1.0",

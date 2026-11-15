@@ -40,6 +40,8 @@ export function controlsFor(s: RoomState, p: Player): Control[] {
       out.push('stop_estimation');
     }
     if (phase.step === 'commit' && s.items.some((item) => item.status === 'todo')) out.push('advance');
+    if (phase.step === 'replenish' && s.items.some((item) => item.status === 'todo')) out.push('advance');
+    if (phase.step === 'limits') out.push('set_limits', 'advance');
   } else if (phase.kind === 'inspect') {
     if (phase.step === 'increment' && state.verdictsRevealed < state.verdicts.length) out.push('reveal_verdict');
     else out.push('advance');

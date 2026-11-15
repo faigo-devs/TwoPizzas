@@ -4,7 +4,7 @@ Guidance for anyone (human or agent) working in this repository.
 
 ## What this is
 
-**LGTM**: a free browser game in which 3–6 beginners learn Scrum or Kanban by playing two short iterations of real
+**Two Pizzas**: a free browser game in which 3–6 beginners learn Scrum or Kanban by playing two short iterations of real
 cooperative work, with the events around it. It will replace the firm's site at the root of www.faigo.ro (FAIGO SRL,
 Oradea). Romanian and English. One static page on the host, a real-time room server in Cloudflare.
 

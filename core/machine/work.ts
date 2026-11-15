@@ -2,6 +2,7 @@ import { config } from '../config.ts';
 import { generatePuzzle, parseResponse } from '../tasks/index.ts';
 import type { Player, PlayerId, RoomState, StampedClientAction, WorkItem } from '../types.ts';
 import { onItemStarted, onReviewWaited } from './agreements.ts';
+import { startBlocked, submitBlocked } from './flow.ts';
 import {
   currentIteration,
   doingCount,
@@ -115,7 +116,7 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
       if (item === undefined) return 'bad_request';
       if (item.workers.includes(p.id)) return 'not_allowed';
       if (item.status === 'todo') {
-        if (!running) return 'not_allowed';
+        if (!running || startBlocked(s)) return 'not_allowed';
         item.status = 'doing';
         item.workers = [p.id];
         item.times.startedAt = s.now;
@@ -166,6 +167,7 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
       const open = p.open;
       if (item.status !== 'doing' || !item.workers.includes(p.id) || item.puzzle === null) return 'not_allowed';
       if (open === null || open.itemId !== item.id || open.mode !== 'work' || s.now < open.readyAt) return 'not_allowed';
+      if (submitBlocked(s)) return 'not_allowed';
       const response = parseResponse(item.kind, action.response);
       if (response === null) return 'bad_request';
       item.submission = response;
@@ -231,10 +233,15 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
 }
 
 /**
- * Tracks the highest number of items In Progress during the Sprint.
+ * Tracks the highest numbers during the iteration: started items (Kanban) or items In Progress (Scrum), and each column.
  */
 export function trackWip(s: RoomState): void {
   if (s.phase.kind !== 'work' || s.iterations.length === 0) return;
   const state = currentIteration(s);
-  state.signals.wipMax = Math.max(state.signals.wipMax, doingCount(s));
+  const doing = doingCount(s);
+  const reviewing = s.items.filter((item) => item.status === 'review').length;
+  const started = s.framework === 'kanban' ? doing + reviewing : doing;
+  state.signals.wipMax = Math.max(state.signals.wipMax, started);
+  state.signals.inProgressMax = Math.max(state.signals.inProgressMax ?? 0, doing);
+  state.signals.reviewMax = Math.max(state.signals.reviewMax ?? 0, reviewing);
 }

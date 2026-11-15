@@ -181,6 +181,7 @@ export interface TeamStyle {
   agreement: Agreement | null;
   secondAgreement: Agreement | null;
   helpBlocked: boolean;
+  limits: { inProgress: number | null; review: number | null };
   noteText: (index: number) => string;
 }
 
@@ -193,7 +194,13 @@ export const defaultStyle: TeamStyle = {
   agreement: { type: 'wip_limit', max: 2 },
   secondAgreement: { type: 'free', text: 'keep it small' },
   helpBlocked: true,
+  limits: { inProgress: 3, review: 3 },
   noteText: (index) => `note from player ${index + 1}`,
+};
+
+export const kanbanStyle: TeamStyle = {
+  ...defaultStyle,
+  agreement: { type: 'wip_limits_set' },
 };
 
 export function playLobby(room: Room, count: number): void {
@@ -208,10 +215,28 @@ export function begin(room: Room): void {
   act(room, facilitator(room), { type: 'phase.begin' });
 }
 
+function playReplenishment(room: Room, style: TeamStyle): void {
+  const players = room.state.players.map((player) => player.id);
+  assert.equal(stepOf(room), 'replenish');
+  const pool = room.state.items.filter((own) => own.status === 'backlog');
+  const chosen = pool.slice(0, Math.min(style.pullCount, config.kanban.readyMax));
+  for (const own of chosen) act(room, players[0] as PlayerId, { type: 'plan.pull', itemId: own.id });
+  if (style.slowPlanMs > 0) wait(room, style.slowPlanMs);
+  act(room, facilitator(room), { type: 'phase.advance' });
+  if (stepOf(room) === 'limits') {
+    act(room, facilitator(room), { type: 'plan.set_limits', ...style.limits });
+    act(room, facilitator(room), { type: 'phase.advance' });
+  }
+}
+
 export function playPlanning(room: Room, style: TeamStyle): void {
   begin(room);
   const phase = room.state.phase;
   assert.equal(phase.kind, 'plan');
+  if (room.state.framework === 'kanban') {
+    playReplenishment(room, style);
+    return;
+  }
   const players = room.state.players.map((player) => player.id);
   const iteration = room.state.iterations[room.state.iterations.length - 1];
   assert.ok(iteration !== undefined);
@@ -259,6 +284,10 @@ function moveBot(room: Room, id: PlayerId, style: TeamStyle): boolean {
       return true;
     }
     if (open.mode === 'work' && target.status === 'doing' && target.puzzle !== null && target.workers.includes(id)) {
+      if (reviewFull(state)) {
+        act(room, id, { type: 'item.close' });
+        return true;
+      }
       const number = Number(target.id.slice(1));
       const wrong = style.wrongMod > 0 && number % style.wrongMod === 0 && target.changesRequested === 0;
       const response = wrong ? wrongResponse(target.puzzle) : answerOf(target.puzzle);
@@ -290,11 +319,26 @@ function moveBot(room: Room, id: PlayerId, style: TeamStyle): boolean {
   }
   const doing = state.items.filter((own) => own.status === 'doing').length;
   const todo = state.items.find((own) => own.status === 'todo');
-  if (todo !== undefined && doing < style.wipLimit) {
+  if (todo !== undefined && doing < style.wipLimit && !inProgressFull(state)) {
     act(room, id, { type: 'item.take', itemId: todo.id });
     return true;
   }
   return false;
+}
+
+function limitsOf(state: RoomState): { inProgress: number | null; review: number | null } {
+  const iteration = state.iterations[state.iterations.length - 1];
+  return iteration?.wipLimits ?? { inProgress: null, review: null };
+}
+
+function inProgressFull(state: RoomState): boolean {
+  const limit = limitsOf(state).inProgress;
+  return limit !== null && state.items.filter((own) => own.status === 'doing').length >= limit;
+}
+
+function reviewFull(state: RoomState): boolean {
+  const limit = limitsOf(state).review;
+  return limit !== null && state.items.filter((own) => own.status === 'review').length >= limit;
 }
 
 function isRight(target: WorkItem): boolean {
@@ -376,9 +420,16 @@ export function playIteration(room: Room, style: TeamStyle): void {
   playRetro(room, style);
 }
 
-export function playGame(options: { players: number; seed: number; style?: Partial<TeamStyle>; checks?: boolean }): Room {
-  const style: TeamStyle = { ...defaultStyle, ...options.style };
-  const room = newRoom({ seed: options.seed, players: 1 });
+export function playGame(options: {
+  players: number;
+  seed: number;
+  style?: Partial<TeamStyle>;
+  checks?: boolean;
+  framework?: 'scrum' | 'kanban';
+}): Room {
+  const framework = options.framework ?? 'scrum';
+  const style: TeamStyle = { ...(framework === 'kanban' ? kanbanStyle : defaultStyle), ...options.style };
+  const room = newRoom({ seed: options.seed, players: 1, framework });
   room.checks = options.checks ?? true;
   playLobby(room, options.players);
   playIteration(room, style);
@@ -403,8 +454,8 @@ export const ExpectedPhases = [
   'summary',
 ];
 
-export function startedRoom(players: number, seed: number, checks = true): Room {
-  const room = newRoom({ seed, players: 1 });
+export function startedRoom(players: number, seed: number, checks = true, framework: 'scrum' | 'kanban' = 'scrum'): Room {
+  const room = newRoom({ seed, players: 1, framework });
   room.checks = checks;
   playLobby(room, players);
   return room;

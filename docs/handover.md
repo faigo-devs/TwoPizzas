@@ -1,19 +1,50 @@
-# Predare: LGTM (actualizat 15 noiembrie 2026)
+# Predare: Two Pizzas (actualizat 15 noiembrie 2026)
 
 Stare și decizii, ca o sesiune nouă să poată continua fără istoricul conversației. Citiți în ordine: `CLAUDE.md`
 (reguli de lucru), `docs/spec.md` (contractul jocului), acest fișier.
 
 ## Stare
-- Repo public și open source, `faigo-devs/LGTM` (licență MIT; numele și logo-ul firmei nu intră sub licență).
+- Jocul se numește **Two Pizzas** (redenumit din LGTM pe 15 noiembrie, seara; decizia 13). Numele e schimbat în texte,
+  pagini, wordmark, logo și pe GitHub; folderul local (`repos/LGTM`) și numele interne `lgtm` / `lgtm-rooms` încă nu.
+- Repo public și open source, `faigo-devs/TwoPizzas` (licență MIT; numele și logo-ul firmei nu intră sub licență).
 - Există: specificația, deciziile, sursele verificate (`docs/spec.md`, secțiunea 11), jocul anterior fără server ca
   referință de portat (`reference/piesa-lipsa/`), fișierele de server ale gazdei (`public/`), logo-urile.
 - Gata și verificate de orchestrator (teste, tipuri, build, capturi): fundația motorului și mașina de stări Scrum
   (`core/`, 104 teste), sistemul vizual și pagina de probă cu componentele (`app/ui`, `app/styles`, `/kit` doar în
   dezvoltare), textele în română și engleză (`app/i18n`, 22 de teste).
-- În lucru: serverul de camere (`worker/`) și aplicația reală până la începutul Sprint-ului (`app/game`).
-- Nu există încă: regulile Kanban în motor, ecranele de lucru, daily, review, retrospectivă și rezumat, turul de unul
-  singur, fluxurile de publicare.
+- Gata și verificat și serverul de camere (`worker/`: 53 de teste, tipuri, `wrangler deploy --dry-run`, o probă reală
+  cu trei jucători pe `wrangler dev`) și fluxul `verify.yml`.
+- Gata și verificate (15 noiembrie, seara): regulile Kanban în motor (179 de teste în total) și aplicația reală până la
+  începutul Sprint-ului (`app/game`: magazin de stare, transport la distanță și local cu coechipieri simulați, start,
+  lobby, cartonașe, Sprint Planning; drum local până la rezumat și probă pe trei pagini cu serverul local, capturi în
+  `.qa/app`). O cameră Kanban nu poate fi încă pornită din pagină (lipsesc ecranele).
+- Gata și verificat: pachetul de publicare (`scripts/check-dist.mjs` cu 46 de teste proprii, `npm run check`,
+  `publish-page.yml` și `publish-server.yml` inerte până la `PUBLISH_ENABLED=true`, `connect-src` cu `wss://`).
+  Nedovedit fără contul real: rutele la un deploy adevărat, încărcarea FTPS, aprobarea mediului `production`.
+- În lucru: clientul, partea a doua (board, task deschis, Daily Scrum) și partea a treia (Review, Retrospective,
+  rezumat, clasament).
+- Nu există încă: ecranele de lucru (board, task deschis, cele patru puzzle-uri pe roluri), daily, review,
+  retrospectivă, rezumat și clasament; ecranele Kanban; turul de unul singur; fluxurile de publicare; scriptul de
+  verificare a build-ului (`scripts/`); proba în browser a unui joc întreg pe trei pagini.
 - Nimic nu este publicat. Pe www.faigo.ro rulează site-ul firmei, din repo-ul lui.
+- Primul push în `faigo-devs/TwoPizzas` este făcut (istoria locală unită cu commit-ul inițial creat de GitHub).
+
+## Pașii următori, în ordine
+1. Commit pentru ce e verificat (motor Kanban, client până la Sprint, redenumire, documente).
+2. Client, partea a doua: board, task deschis cu cele patru puzzle-uri (om singur, pereche, reviewer, „info you hold”),
+   schimbarea de context, Daily Scrum. Pe telefon, ce trebuie făcut apare înaintea board-ului.
+3. Client, partea a treia: Sprint Review, Sprint Retrospective (note, „Nu știu ce să scriu”, voturi, acord), comparația
+   celor două iterații, rezumatul tipăribil, clasamentul.
+4. Ecranele Kanban (Replenishment, limite WIP, cereri care sosesc, Delivery review cu cele patru metrici și graficul).
+5. O trecere de texte: formulări pentru id-urile noi din Kanban (observații, ajutor, refuzuri prin limită), fraza din
+   confidențialitate despre limba și tema ținute minte în browser, variantele Kanban ale observațiilor.
+6. Turul de unul singur (modul local), `scripts/check-dist.mjs`, fluxurile de publicare (fără nume de gazdă: doar din
+   secrete și variabile), politica de securitate a paginii cu `wss://` pentru site.
+7. Proba în browser: un joc Scrum și unul Kanban întregi, pe trei pagini, cu serverul local.
+8. Evaluatorii independenți (design, română, engleză, fidelitate față de ghiduri, utilizare, securitatea serverului),
+   apoi sesiunea de probă cu oameni, apoi publicarea, doar cu acordul proprietarului.
+
+De aprobat de proprietar: textul de confidențialitate (`privacy.*` din `app/i18n`), prezentat lui pe 15 noiembrie.
 
 ## Decizii ale proprietarului (15 noiembrie 2026, de nu redeschis fără el)
 Stabilite într-o sesiune de întrebări și confirmate de el la final.
@@ -56,13 +87,15 @@ Stabilite într-o sesiune de întrebări și confirmate de el la final.
 12. **Clasament public.** Doar dacă echipa alege la final („Publicați rezultatul”). Nume de echipă generate de joc (două
     cuvinte, cu „altul” până place), nu scrise liber. Măsoară valoarea livrată; primele 10 din luna curentă și recordul
     din toate timpurile; separat pentru Scrum și Kanban. Se păstrează doar numele generat, mărimea echipei, scorul, data.
-13. **Nume și stil.** Jocul se numește **LGTM**, cu o linie explicativă sub nume, în limba aleasă. Stil vizual nou, de
+13. **Nume și stil.** Jocul se numește **Two Pizzas** (o echipă cât pentru două pizze: 3–6 jucători), cu o linie
+    explicativă sub nume, în limba aleasă. Numele inițial, LGTM, a fost abandonat de proprietar pe 15 noiembrie (are și
+    alte sensuri printre developeri); LGTM rămâne doar ștampila de la code review. Stil vizual nou, de
     unealtă pentru programatori (întunecat implicit, mai colorat, mai jucăuș); FAIGO rămâne doar în subsol.
 14. **Publicare.** Nimic până când versiunea aceasta e gata; până atunci pe server rămâne site-ul firmei. Ordinea: o sesiune de probă
     cu 3–6 începători reali și 3 întrebări la final → reparat ce i-a încurcat → evaluatorii 9/10 → publicare. La
     publicare se opresc cele două Worker-e vechi (`/api/contact`, `/api/scan`); codul lor rămâne în repo.
 
-15. **Repo separat, public, open source.** Jocul se construiește în repo-ul lui, `faigo-devs/LGTM`, nu în repo-ul
+15. **Repo separat, public, open source.** Jocul se construiește în repo-ul lui, `faigo-devs/TwoPizzas`, nu în repo-ul
     site-ului. Asistentul este proprietarul tehnic și întreținătorul pe termen lung al codului și lucrează ca
     orchestrator al unei echipe de agenți.
 
@@ -90,8 +123,10 @@ Stabilite într-o sesiune de întrebări și confirmate de el la final.
 8. Sesiunea de probă cu oameni reali (proprietarul), apoi evaluatorii 9/10, apoi publicarea.
 
 ## Rămase pe lista proprietarului
-- Primul push în `faigo-devs/LGTM`.
-- Secretele și variabilele de publicare în repo, înainte de publicare.
+- Redenumirea folderului local, doar între sesiuni (pe GitHub repo-ul este deja `faigo-devs/TwoPizzas`).
+- Secretele și variabilele de publicare în repo, înainte de publicare. Secrete: `FTP_HOST`, `FTP_USER`,
+  `FTP_PASSWORD`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. Variabile: `FTP_REMOTE_DIR`, `SITE_URL`,
+  `SITE_HOSTS`, iar la final `PUBLISH_ENABLED=true`. Mediul `production` se creează în setările repo-ului.
 - Cine joacă sesiunea de probă (3–6 începători) și când.
 - Textul de confidențialitate, înainte de publicare (îl propune echipa, îl aprobă proprietarul).
 - O regulă în rețeaua din fața gazdei care scoate antetul de răspuns ce numește panoul gazdei (fișierul de

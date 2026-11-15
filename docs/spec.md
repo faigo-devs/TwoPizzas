@@ -1,7 +1,7 @@
-# LGTM: specification
+# Two Pizzas: specification
 
 The contract for everyone who builds or changes the game. The owner's fourteen decisions (15 November 2026) are in
-`docs/handover.md` → "LGTM"; this file turns them into rules. When a rule here and the code disagree, fix one of them in
+`docs/handover.md`; this file turns them into rules. When a rule here and the code disagree, fix one of them in
 the same change. Reasoning that would otherwise sit in a code comment lives here (section 10).
 
 ## 1. What it is
@@ -71,7 +71,8 @@ name such as `payments-api`), an estimate (story points, from planning poker, op
   same workers).
 - At the end of the iteration the Product Owner accepts a done item only when its answer is right. A wrong answer that
   got an LGTM is an **escaped defect**: no value, and the item returns to the top of the backlog. Items not done return
-  to the backlog (Scrum) or stay open and show their work item age (Kanban).
+  to the backlog (Scrum); in Kanban they are counted in the round's work item age and leave the board when the next round
+  starts, and an escaped defect simply leaves the board.
 
 Sizes change the amount of information (lines, components, rules), not the kind of thinking. A full item with all its
 information in one view (the reviewer's, or an `S` worker's) takes roughly 30–45 s of attention.
@@ -126,7 +127,13 @@ config object (`core/config.ts`) so that the pilot session can tune them.
 **Kanban**
 - Board: Ready, In Progress, Review, Done. Requests keep arriving (one every 45 s, eight per round, seeded) straight
   into Ready; an arriving request is marked "please start now".
-- `plan` (Replenishment): the team chooses which requests of the opening pool enter Ready first. In round 2 it also sets the WIP limits of In
+- `plan` (Replenishment): the team chooses which requests of the opening pool (eight) enter Ready first (at most four).
+  Steps: `card`, `replenish`, and in round 2 `limits`. A limit may be left unset, which is why "set WIP limits" can be
+  an agreement that is kept or broken. Request changes may put an item back In Progress above the limit: it is not a
+  start.
+- Kanban's WIP metric counts In Progress and Review together; cycle time and work item age leave out the daily.
+- Kanban observation ids: `work.limitReached`, `work.limitNeverReached`, `work.agedWork`, `inspect.throughputUp`,
+  `inspect.throughputDown`, `inspect.cycleTimeFaster`, `inspect.cycleTimeSlower`. In round 2 it also sets the WIP limits of In
   Progress and Review, which the server then enforces.
 - Round 1 has no limits. Round 2 starts from an empty board with a comparable set of requests and the limits.
 - `inspect` (Delivery review): the four flow metrics of the Kanban Guide, throughput, cycle time (started → finished),
@@ -180,8 +187,8 @@ config object (`core/config.ts`) so that the pilot session can tune them.
   minutes or 2 hours after creation, whichever comes first.
 - `Leaderboard`: one object, SQLite storage; keeps only rows that can still appear in a list.
 - Logs: event names, codes and counts only. Never a name, a note, a room code or an address.
-- Routes on both site hostnames (`/api/room*`), `workers_dev = false`, deployed by its own workflow when
-  `worker/**` or `core/**` change. Tests with `node --test` against stubbed bindings, like the other two
+- Routes on both site hostnames (`/api/room*`), `workers_dev = false`, deployed by its own workflow
+  (`publish-server.yml`) when `worker/**` or `core/**` change and publication is enabled (section 10). Tests with `node --test` against stubbed bindings, like the other two
   Workers.
 - The page's `Content-Security-Policy` allows the site itself plus `wss://www.faigo.ro` and `wss://faigo.ro` in
   `connect-src`; nothing else.
@@ -238,6 +245,30 @@ motion. It imitates no existing product. FAIGO appears only in the footer.
 
 ## 10. Decisions and reasons
 
+- The game is named **Two Pizzas** (a team small enough to be fed by two pizzas: the game's 3–6 players); the start
+  screen says so once, in the line under the name. It was first called LGTM; the owner dropped that name on 15 November
+  2026 because the abbreviation carries other meanings among developers. LGTM stays only as the review verdict and its
+  stamp. The `lg-` prefix of the CSS classes and of the browser storage keys is kept: it is an arbitrary prefix and
+  renaming it would change every component for no gain. The internal names `lgtm` (root package) and `lgtm-rooms`
+  (Worker) are renamed with the repository.
+- Publication is off by default: every publishing job runs only when the repository variable `PUBLISH_ENABLED` is
+  `true`, in the `production` environment, with a concurrency group that never cancels a running publish. Host,
+  account, directory and site address come only from secrets and variables (`FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`,
+  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`; `FTP_REMOTE_DIR`, `SITE_URL`, `SITE_HOSTS`).
+- The Worker's routes and its allowed origins are both derived from `SITE_HOSTS` at publish time (`--route
+  <host>/api/room*`, `ALLOWED_ORIGINS` as `https://<host>`), so they cannot disagree and `wrangler.toml` names no host.
+- Workflows pin every action by full commit SHA because publishing uses long-lived credentials. Resolved on 15
+  November 2026: the upload action at tag v4.3.5 = `8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65`; checkout v4 =
+  `11d5960a326750d5838078e36cf38b85af677262`; setup-node v4 = `49933ea5288caeca8642d1e84afbd3f7d6820020`.
+- The page publish builds without a package cache, runs tests, typecheck, build and `scripts/check-dist.mjs`, uploads,
+  then fails only if the served home page is not byte-identical to the build; a wrong 404, a served sync-state file, a
+  missing policy header or injected code are warnings. The live server is only ever asked for
+  `GET /api/room/leaderboard`: a smoke test never creates a room.
+- `scripts/check-dist.mjs` reads the site origin from `astro.config.mjs` and the three source addresses from
+  `app/i18n/sources.ts`, allows nothing else but XML namespace identifiers, requires identical policies in `web.config`
+  and `.htaccess`, and holds a size budget (JS 450 kB, CSS 150 kB, fonts 300 kB; 260, 61 and 206 kB on 15 November).
+- The static page declares `lang="ro"` (the fallback language) and carries the Romanian description; the app sets the
+  language of the document when it starts.
 - The server decides everything and hides the answers because a public leaderboard makes a browser-side check worthless.
 - Correctness is revealed only at the review of the iteration, so that the reviewer's LGTM is a real responsibility and
   an escaped defect can exist.

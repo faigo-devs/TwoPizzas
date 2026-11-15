@@ -1,7 +1,7 @@
 import { config } from '../config.ts';
 import type { IterationMetrics, IterationNumber, LeaderboardEntry, RoomState, Score } from '../types.ts';
 import { agreementOutcome } from './agreements.ts';
-import { iterationAt } from './util.ts';
+import { iterationAt, workElapsed } from './util.ts';
 
 function average(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -28,11 +28,25 @@ export function computeMetrics(s: RoomState, iteration: IterationNumber): Iterat
           .filter((item) => item.theme === goalTheme)
           .every((item) => item.status === 'done' && item.outcome === 'accepted');
   const valueDelivered = accepted.reduce((sum, entry) => sum + entry.item.value, 0);
-  const cycleTimesMs = verdictItems.flatMap((entry) =>
-    entry.item.times.startedAt !== null && entry.item.times.doneAt !== null
-      ? [entry.item.times.doneAt - entry.item.times.startedAt]
-      : [],
+  const kanban = s.framework === 'kanban';
+  const endAt = state.flowEndedAt ?? s.now;
+  const cycleTimesMs = verdictItems.flatMap((entry) => {
+    const { startedAt, doneAt } = entry.item.times;
+    if (startedAt === null || doneAt === null) return [];
+    return [kanban ? workElapsed(state, startedAt, doneAt) : doneAt - startedAt];
+  });
+  const open = s.items.filter(
+    (item) => item.iteration === iteration && (item.status === 'doing' || item.status === 'review'),
   );
+  const openAges = open.map((item) => {
+    const startedAt = item.times.startedAt;
+    const ageMs = kanban
+      ? startedAt === null
+        ? 0
+        : workElapsed(state, startedAt, endAt)
+      : s.now - (startedAt ?? s.now);
+    return { itemId: item.id, ageMs };
+  });
   return {
     iteration,
     accepted: accepted.length,
@@ -45,10 +59,9 @@ export function computeMetrics(s: RoomState, iteration: IterationNumber): Iterat
     cycleTimesMs,
     averageCycleMs: average(cycleTimesMs),
     wipMax: state.signals.wipMax,
-    openAges: s.items
-      .filter((item) => item.iteration === iteration && (item.status === 'doing' || item.status === 'review'))
-      .map((item) => ({ itemId: item.id, ageMs: s.now - (item.times.startedAt ?? s.now) })),
+    openAges,
     agreement: agreementOutcome(s),
+    ...(kanban ? { wipLimits: { ...state.wipLimits } } : {}),
   };
 }
 

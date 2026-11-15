@@ -309,6 +309,7 @@ export interface WorkspaceView {
   submission: PuzzleResponse | null;
   canSubmit: boolean;
   canVerdict: boolean;
+  submitBlockedByLimit?: boolean;
 }
 
 export interface HeldInfo {
@@ -423,7 +424,14 @@ export type ObservationId =
   | 'retro.noAction'
   | 'retro.actionChosen'
   | 'retro.actionKept'
-  | 'retro.actionBroken';
+  | 'retro.actionBroken'
+  | 'work.limitReached'
+  | 'work.limitNeverReached'
+  | 'work.agedWork'
+  | 'inspect.throughputUp'
+  | 'inspect.throughputDown'
+  | 'inspect.cycleTimeFaster'
+  | 'inspect.cycleTimeSlower';
 
 export interface Observation {
   id: ObservationId;
@@ -451,6 +459,7 @@ export interface IterationMetrics {
   wipMax: number;
   openAges: FlowPoint[];
   agreement: AgreementOutcome | null;
+  wipLimits?: WipLimits;
 }
 
 export interface Score {
@@ -545,6 +554,8 @@ export interface Signals {
   maxReviewWaitMs: number;
   pairWaitMs: number;
   agreementViolations: number;
+  inProgressMax?: number;
+  reviewMax?: number;
 }
 
 export interface DailySpan {
@@ -563,6 +574,7 @@ export interface IterationState {
   wipLimits: WipLimits;
   nextArrivalAt: number | null;
   arrivalsLeft: number;
+  flowEndedAt?: number | null;
   verdicts: VerdictView[];
   verdictsRevealed: number;
   dailySpan: DailySpan | null;
@@ -650,6 +662,53 @@ export interface PlanningView {
   totalEstimate: number;
   previousVelocity: number | null;
   estimationStopped: boolean;
+  replenish?: ReplenishView | null;
+}
+
+/**
+ * What a Kanban replenishment shows: how many requests may enter Ready and the range a limit may take.
+ */
+export interface ReplenishView {
+  readyMax: number;
+  ready: number;
+  pool: number;
+  limitMin: number;
+  limitMax: number;
+  settingLimits: boolean;
+}
+
+/**
+ * The Kanban board in numbers: limits, column counts, what a limit blocks right now and the arrival clock.
+ */
+export interface KanbanView {
+  limits: WipLimits;
+  ready: number;
+  inProgress: number;
+  review: number;
+  done: number;
+  startBlockedByLimit: boolean;
+  submitBlockedByLimit: boolean;
+  nextArrivalAt: number | null;
+  arrivalsLeft: number;
+  arrivalsTotal: number;
+}
+
+export interface ComparedValue {
+  first: number | null;
+  second: number | null;
+}
+
+/**
+ * The two Kanban rounds side by side, as the numbers the comparison chart draws.
+ */
+export interface FlowComparison {
+  throughput: ComparedValue;
+  averageCycleMs: ComparedValue;
+  wipMax: ComparedValue;
+  openCount: ComparedValue;
+  escapedDefects: ComparedValue;
+  valueDelivered: ComparedValue;
+  limits: WipLimits;
 }
 
 export interface VerdictView {
@@ -666,6 +725,8 @@ export interface InspectView {
   goalBonus: number | null;
   velocity: number | null;
   feedback: FeedbackState | null;
+  flow?: IterationMetrics | null;
+  comparison?: FlowComparison | null;
 }
 
 export interface RetroNoteView {
@@ -715,6 +776,7 @@ export interface PlayerView {
   controls: Control[];
   items: ItemView[];
   limits: WipLimits | null;
+  kanban?: KanbanView | null;
   workspace: WorkspaceView | null;
   held: HeldInfo[];
   planning: PlanningView | null;

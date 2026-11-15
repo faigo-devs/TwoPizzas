@@ -7,7 +7,7 @@ import { itemNumber } from './util.ts';
 const Kinds: PuzzleKind[] = ['review', 'order', 'incident', 'merge'];
 const SizeRank: Record<ItemSize, number> = { S: 0, M: 1, L: 2 };
 
-interface Draft {
+export interface Draft {
   size: ItemSize;
   kind: PuzzleKind;
   theme: Theme;
@@ -15,7 +15,7 @@ interface Draft {
   dependency: boolean;
 }
 
-function sizeList(composition: Record<ItemSize, number>): ItemSize[] {
+export function sizeList(composition: Record<ItemSize, number>): ItemSize[] {
   const out: ItemSize[] = [];
   for (const size of ['S', 'M', 'L'] as const) {
     for (let count = 0; count < composition[size]; count += 1) out.push(size);
@@ -30,7 +30,7 @@ function isMonotone(sizes: ItemSize[]): boolean {
   return rising || falling;
 }
 
-function pickSubjects(s: RoomState, rng: Rng, count: number): string[] {
+export function pickSubjects(s: RoomState, rng: Rng, count: number): string[] {
   const used = new Set(s.items.map((item) => item.subject));
   const free = rng.shuffle(config.backlog.subjects.filter((subject) => !used.has(subject)));
   const fallback = rng.shuffle([...config.backlog.subjects]);
@@ -47,7 +47,7 @@ function dependencyFlags(sizes: ItemSize[], rng: Rng): boolean[] {
   return flags;
 }
 
-function buildItem(s: RoomState, draft: Draft, iteration: IterationNumber, subject: string): WorkItem {
+export function buildItem(s: RoomState, draft: Draft, iteration: IterationNumber, subject: string): WorkItem {
   const number = s.nextItemNumber;
   s.nextItemNumber += 1;
   return {
@@ -88,11 +88,15 @@ function buildItem(s: RoomState, draft: Draft, iteration: IterationNumber, subje
 }
 
 /**
- * Builds the ten items of the first backlog, ordered by value; priority order is never size order.
+ * Builds the items of a backlog or of a Kanban opening pool, ordered by value; priority order is never size order.
  */
-export function generateBacklog(s: RoomState): void {
+export function generateBacklog(
+  s: RoomState,
+  composition: Record<ItemSize, number> = config.backlog.composition,
+  iteration: IterationNumber = 1,
+): void {
   const rng = createRng(s.rng);
-  const sizes = sizeList(config.backlog.composition);
+  const sizes = sizeList(composition);
   const themes = rng.shuffle([...config.backlog.themes, ...config.backlog.themes, ...config.backlog.themes, rng.pick(config.backlog.themes)]);
   const kinds = rng.shuffle([...Kinds, ...Kinds, ...rng.shuffle(Kinds).slice(0, Math.max(0, sizes.length - 2 * Kinds.length))]);
   const flags = dependencyFlags(sizes, rng);
@@ -114,7 +118,7 @@ export function generateBacklog(s: RoomState): void {
         value: values[index] as number,
         dependency: flags[index] as boolean,
       },
-      1,
+      iteration,
       subjects[rank] as string,
     ),
   );
@@ -157,4 +161,30 @@ export function reorderBacklog(s: RoomState): void {
     (a, b) => Number(b.defect) - Number(a.defect) || b.value - a.value || itemNumber(a.id) - itemNumber(b.id),
   );
   s.items = [...backlog, ...s.items.filter((item) => item.status !== 'backlog')];
+}
+
+/**
+ * Builds request number index of a Kanban round, already in Ready; the room seed alone decides what arrives.
+ */
+export function makeArrival(s: RoomState, iteration: IterationNumber, index: number, at: number): WorkItem {
+  const sizes = createRng(mixSeed(s.seed, `arrivals:${iteration}`)).shuffle(sizeList(config.kanban.arrivalComposition));
+  const rng = createRng(mixSeed(s.seed, `arrival:${iteration}:${index}`));
+  const size = sizes[index % sizes.length] as ItemSize;
+  const subject = pickSubjects(s, rng, 1)[0] as string;
+  const created = buildItem(
+    s,
+    {
+      size,
+      kind: rng.pick(Kinds),
+      theme: rng.pick(config.backlog.themes),
+      value: config.backlog.valueMin + rng.int(config.backlog.valueMax - config.backlog.valueMin + 1),
+      dependency: size === 'L' ? true : size === 'M' ? rng.next() < 0.5 : false,
+    },
+    iteration,
+    subject,
+  );
+  created.status = 'todo';
+  created.times.arrivedAt = at;
+  created.times.readyAt = at;
+  return created;
 }

@@ -1,0 +1,96 @@
+name: publish-server
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - worker/**
+      - core/**
+      - .github/workflows/publish-server.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-server
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: vars.PUBLISH_ENABLED == 'true'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Require the publication secrets and variables
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SITE_HOSTS: ${{ vars.SITE_HOSTS }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          missing=""
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || missing="$missing secret:CLOUDFLARE_API_TOKEN"
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || missing="$missing secret:CLOUDFLARE_ACCOUNT_ID"
+          [ -n "$SITE_HOSTS" ] || missing="$missing variable:SITE_HOSTS"
+          [ -n "$SITE_URL" ] || missing="$missing variable:SITE_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::Publication is enabled but these are not set:$missing"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+
+      - name: Deploy the worker with routes and allowed origins from SITE_HOSTS
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SITE_HOSTS: ${{ vars.SITE_HOSTS }}
+        run: |
+          args=()
+          origins=""
+          IFS=',' read -ra hosts <<< "$SITE_HOSTS"
+          for raw in "${hosts[@]}"; do
+            host="$(printf '%s' "$raw" | tr -d '[:space:]')"
+            [ -n "$host" ] || continue
+            if ! printf '%s' "$host" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'; then
+              echo "::error::SITE_HOSTS holds an entry that is not a bare host name"
+              exit 1
+            fi
+            args+=(--route "${host}/api/room*")
+            origins="${origins:+$origins,}https://${host}"
+          done
+          if [ "${#args[@]}" -eq 0 ]; then
+            echo "::error::SITE_HOSTS holds no host name"
+            exit 1
+          fi
+          npx wrangler deploy "${args[@]}" --var "ALLOWED_ORIGINS:${origins}"
+
+      - name: Smoke test the public leaderboard route
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          site="${SITE_URL%/}"
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            status="$(curl -sS -o /dev/null -w '%{http_code}' "$site/api/room/leaderboard" || echo 000)"
+            if [ "$status" = "200" ]; then
+              echo "Leaderboard route answered 200"
+              exit 0
+            fi
+            echo "attempt $attempt: status $status"
+            sleep 5
+          done
+          echo "::error::The leaderboard route did not answer 200 (last status $status)"
+          exit 1

@@ -1,6 +1,6 @@
 import { config } from '../config.ts';
 import type { IterationNumber, Observation, ObservationId, RoomState } from '../types.ts';
-import { currentIteration, sprintItems } from './util.ts';
+import { currentIteration, iterationAt, sprintItems, workElapsed } from './util.ts';
 
 export type ObservationGroup = 'plan' | 'daily' | 'work' | 'inspect' | 'retro';
 
@@ -20,7 +20,12 @@ function planCandidates(s: RoomState): Candidate[] {
   const out: Candidate[] = [];
   const late = sig.planOverrunMs > 0;
   if (late) out.push({ id: 'plan.overtime', positive: false, params: { overrunSec: seconds(sig.planOverrunMs) } });
+  const scrum = s.framework === 'scrum';
   const pulled = s.items.filter((item) => item.status === 'todo').length;
+  if (!scrum) {
+    if (!late) out.push({ id: 'plan.onTime', positive: true, params: {} });
+    return out;
+  }
   if (sig.unestimatedPulled > 0) {
     out.push({ id: 'plan.unestimatedPulled', positive: false, params: { count: sig.unestimatedPulled } });
   } else if (pulled > 0) {
@@ -63,22 +68,70 @@ function dailyCandidates(s: RoomState): Candidate[] {
   return out;
 }
 
+function kanbanWorkCandidates(s: RoomState): Candidate[] {
+  const iteration = currentIteration(s);
+  const sig = iteration.signals;
+  const out: Candidate[] = [];
+  const { inProgress, review } = iteration.wipLimits;
+  if (inProgress !== null || review !== null) {
+    const params = {
+      inProgressLimit: inProgress ?? 0,
+      reviewLimit: review ?? 0,
+      inProgressMax: sig.inProgressMax ?? 0,
+      reviewMax: sig.reviewMax ?? 0,
+    };
+    const reached =
+      (inProgress !== null && (sig.inProgressMax ?? 0) >= inProgress) ||
+      (review !== null && (sig.reviewMax ?? 0) >= review);
+    out.push(reached ? { id: 'work.limitReached', positive: true, params } : { id: 'work.limitNeverReached', positive: false, params });
+  }
+  const end = iteration.flowEndedAt ?? s.now;
+  const ages = s.items
+    .filter((item) => item.iteration === iteration.iteration && (item.status === 'doing' || item.status === 'review'))
+    .map((item) => workElapsed(iteration, item.times.startedAt ?? end, end))
+    .filter((age) => age >= config.kanban.agedWorkMs);
+  if (ages.length > 0) {
+    out.push({ id: 'work.agedWork', positive: false, params: { count: ages.length, oldestSec: seconds(Math.max(...ages)) } });
+  }
+  return out;
+}
+
 function workCandidates(s: RoomState): Candidate[] {
   const iteration = currentIteration(s);
   const sig = iteration.signals;
   const players = s.players.length;
   const items = sprintItems(s, iteration.iteration);
   const out: Candidate[] = [];
+  const kanban = s.framework === 'kanban';
+  if (kanban) out.push(...kanbanWorkCandidates(s));
   if (sig.wipMax >= Math.ceil(players * config.observations.wipHighFactor)) {
     out.push({ id: 'work.wipHigh', positive: false, params: { wipMax: sig.wipMax, players } });
   } else if (sig.wipMax > 0 && sig.wipMax <= players) {
     out.push({ id: 'work.wipLow', positive: true, params: { wipMax: sig.wipMax, players } });
   }
-  const unfinished = items.filter((item) => item.status !== 'done').length;
+  const started = kanban ? items.filter((item) => item.times.startedAt !== null) : items;
+  const unfinished = started.filter((item) => item.status !== 'done').length;
   if (unfinished > 0) out.push({ id: 'work.unfinished', positive: false, params: { count: unfinished } });
-  else if (items.length > 0) out.push({ id: 'work.allFinished', positive: true, params: { count: items.length } });
+  else if (started.length > 0) out.push({ id: 'work.allFinished', positive: true, params: { count: started.length } });
   if (sig.pairWaitMs >= config.observations.pairWaitMs) {
     out.push({ id: 'work.waitingForPair', positive: false, params: { waitSec: seconds(sig.pairWaitMs) } });
+  }
+  return out;
+}
+
+function kanbanInspectCandidates(s: RoomState): Candidate[] {
+  const iteration = currentIteration(s);
+  const current = iteration.metrics;
+  const first = iteration.iteration === 2 ? iterationAt(s, 1).metrics : null;
+  const out: Candidate[] = [];
+  if (current === null || first === null) return out;
+  const params = { first: first.throughput, second: current.throughput };
+  if (current.throughput > first.throughput) out.push({ id: 'inspect.throughputUp', positive: true, params });
+  else if (current.throughput < first.throughput) out.push({ id: 'inspect.throughputDown', positive: false, params });
+  if (current.averageCycleMs !== null && first.averageCycleMs !== null) {
+    const cycle = { firstSec: seconds(first.averageCycleMs), secondSec: seconds(current.averageCycleMs) };
+    if (current.averageCycleMs < first.averageCycleMs) out.push({ id: 'inspect.cycleTimeFaster', positive: true, params: cycle });
+    else if (current.averageCycleMs > first.averageCycleMs) out.push({ id: 'inspect.cycleTimeSlower', positive: false, params: cycle });
   }
   return out;
 }
@@ -88,14 +141,16 @@ function inspectCandidates(s: RoomState): Candidate[] {
   const metrics = iteration.metrics;
   const out: Candidate[] = [];
   if (metrics === null) return out;
+  if (s.framework === 'kanban') out.push(...kanbanInspectCandidates(s));
   if (metrics.escapedDefects > 0) {
     out.push({ id: 'inspect.escapedDefects', positive: false, params: { count: metrics.escapedDefects } });
   } else if (metrics.accepted > 0) {
     out.push({ id: 'inspect.noEscapedDefects', positive: true, params: { accepted: metrics.accepted } });
   }
-  if (metrics.goalMet === true) {
+  const scrum = s.framework === 'scrum';
+  if (scrum && metrics.goalMet === true) {
     out.push({ id: 'inspect.goalMet', positive: true, params: { bonus: metrics.goalBonus } });
-  } else if (metrics.goalMet === false) {
+  } else if (scrum && metrics.goalMet === false) {
     out.push({ id: 'inspect.goalMissed', positive: false, params: { theme: iteration.goal ?? '' } });
   }
   return out;

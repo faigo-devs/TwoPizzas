@@ -94,6 +94,9 @@ export const config = deepFreeze({
   kanban: {
     arrivalIntervalMs: 45_000,
     arrivalComposition: { S: 4, M: 3, L: 1 },
+    poolComposition: { S: 3, M: 3, L: 2 },
+    readyMax: 4,
+    agedWorkMs: 120_000,
     wipLimitMin: 1,
     wipLimitMax: 6,
     suggestedAgreement: 'wip_limits_set',

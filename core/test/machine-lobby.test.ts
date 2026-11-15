@@ -62,11 +62,12 @@ test('start needs the host and three connected players', () => {
   assert.equal(late.ok ? 'ok' : late.code, 'already_started');
 });
 
-test('a Kanban room sits in the lobby and refuses to start for now', () => {
+test('a Kanban room starts like a Scrum room and opens on its Replenishment card', () => {
   const room = newRoom({ framework: 'kanban', players: 3 });
-  assert.equal(code(tryAct(room, 'p1', { type: 'lobby.start' })), 'not_allowed');
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, []);
-  assert.equal(room.state.phase.kind, 'lobby');
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['start_game']);
+  act(room, 'p1', { type: 'lobby.start' });
+  assert.equal(room.state.phase.kind, 'plan');
+  assert.equal(room.state.items.filter((own) => own.status === 'backlog').length, 8);
 });
 
 test('a volunteer facilitates the first iteration and the role passes on in the second', () => {

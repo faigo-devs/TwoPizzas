@@ -67,7 +67,7 @@ function applyFeedback(s: RoomState): void {
   reorderBacklog(s);
 }
 
-function leaveInspect(s: RoomState): void {
+export function leaveInspect(s: RoomState): void {
   recordEvent(s);
   observe(s, 'inspect');
   enterRetro(s);

@@ -1,7 +1,15 @@
-import type { Agreement, AgreementType, ErrorCode, Framework, Player, RoomState, StampedClientAction } from '../types.ts';
+import type { Agreement, AgreementType, Framework, Player, RoomState, StampedClientAction } from '../types.ts';
 import { cleanAgreement } from './agreements.ts';
 import { generateBacklog } from './backlog.ts';
 import { inspectAdvance, inspectBegin, inspectReveal } from './inspect.ts';
+import {
+  kanbanCleanAgreement,
+  kanbanInspectAdvance,
+  kanbanPlanAction,
+  kanbanPlanAdvance,
+  kanbanPlanBegin,
+  kanbanSuggestions,
+} from './kanban.ts';
 import { planAction, planAdvance, planBegin } from './plan.ts';
 import { currentIteration, type Refusal } from './util.ts';
 
@@ -49,19 +57,17 @@ const scrum: FrameworkRules = {
   suggestedAgreements: scrumSuggestions,
 };
 
-const notAllowed = (): ErrorCode => 'not_allowed';
-
 const kanban: FrameworkRules = {
-  canStart: () => false,
-  start: notAllowed,
-  planBegin: () => undefined,
-  planAction: notAllowed,
-  planAdvance: notAllowed,
-  inspectBegin: () => undefined,
-  inspectReveal: notAllowed,
-  inspectAdvance: notAllowed,
-  cleanAgreement: () => null,
-  suggestedAgreements: () => ['free'],
+  canStart: () => true,
+  start: () => null,
+  planBegin: kanbanPlanBegin,
+  planAction: kanbanPlanAction,
+  planAdvance: kanbanPlanAdvance,
+  inspectBegin,
+  inspectReveal,
+  inspectAdvance: kanbanInspectAdvance,
+  cleanAgreement: kanbanCleanAgreement,
+  suggestedAgreements: kanbanSuggestions,
 };
 
 const table: Record<Framework, FrameworkRules> = { scrum, kanban };
