@@ -1,0 +1,223 @@
+.lg-chart {
+  display: grid;
+  gap: var(--lg-s-2);
+  max-width: 32rem;
+}
+
+.lg-chart__title {
+  font-family: var(--lg-font-mono);
+  font-size: var(--lg-t-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lg-text-2);
+}
+
+.lg-chart__svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.lg-chart__label {
+  fill: var(--lg-text);
+  font-family: var(--lg-font-sans);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.lg-chart__value {
+  fill: var(--lg-text-2);
+  font-family: var(--lg-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lg-chart__value--second {
+  fill: var(--lg-text);
+}
+
+.lg-chart__key,
+.lg-chart__tick {
+  fill: var(--lg-text-2);
+  font-family: var(--lg-font-mono);
+  font-size: 11px;
+}
+
+.lg-chart__hatch-bg {
+  fill: var(--lg-surface);
+}
+
+.lg-chart__hatch-line {
+  stroke: var(--lg-c1);
+  stroke-width: 2.4;
+}
+
+.lg-chart__bar--first {
+  fill: url(#lg-hatch);
+  stroke: var(--lg-c1);
+  stroke-width: 1.5;
+}
+
+.lg-chart__bar--second {
+  fill: var(--lg-c2);
+}
+
+.lg-chart__grid {
+  stroke: var(--lg-line);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.lg-chart__axis {
+  stroke: var(--lg-line-strong);
+  stroke-width: 1.5;
+}
+
+.lg-chart__dot--first {
+  fill: var(--lg-surface);
+  stroke: var(--lg-c1);
+  stroke-width: 2;
+}
+
+.lg-chart__dot--second {
+  fill: var(--lg-c2);
+  stroke: var(--lg-surface);
+  stroke-width: 1.5;
+}
+
+.lg-chart__median {
+  fill: var(--lg-text);
+}
+
+.lg-chart__note {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-s-2);
+  font-size: var(--lg-t-xs);
+  color: var(--lg-text-2);
+}
+
+.lg-board-table {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--lg-surface);
+  border: 1px solid var(--lg-line);
+  border-radius: var(--lg-r-md);
+}
+
+.lg-lb {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--lg-t-sm);
+}
+
+.lg-lb__caption {
+  padding: var(--lg-s-3) var(--lg-s-4);
+  text-align: left;
+  font-family: var(--lg-font-mono);
+  font-size: var(--lg-t-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lg-accent-text);
+  border-bottom: 1px solid var(--lg-line);
+}
+
+.lg-lb th,
+.lg-lb td {
+  padding: var(--lg-s-2) var(--lg-s-3);
+  text-align: left;
+  border-bottom: 1px solid var(--lg-line);
+}
+
+.lg-lb thead th {
+  font-size: var(--lg-t-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lg-text-2);
+  background: var(--lg-sunken);
+}
+
+.lg-lb tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.lg-lb__num {
+  text-align: right !important;
+  font-family: var(--lg-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.lg-lb__rank {
+  width: 3rem;
+}
+
+.lg-lb__date {
+  font-family: var(--lg-font-mono);
+  font-size: var(--lg-t-xs);
+  color: var(--lg-text-2);
+  white-space: nowrap;
+}
+
+.lg-lb__team {
+  font-family: var(--lg-font-mono);
+  font-weight: 500;
+}
+
+.lg-lb__score {
+  font-weight: 600;
+  color: var(--lg-text);
+}
+
+.lg-lb__medal {
+  display: inline-grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid var(--lg-line-strong);
+  border-radius: 50%;
+  font-family: var(--lg-font-mono);
+  font-size: var(--lg-t-xs);
+  font-weight: 600;
+}
+
+.lg-lb__medal.is-top1 {
+  background: var(--lg-accent);
+  border-color: var(--lg-accent);
+  color: var(--lg-on-accent);
+}
+
+.lg-lb__medal.is-top2,
+.lg-lb__medal.is-top3 {
+  border-width: 2px;
+  border-color: var(--lg-accent-strong);
+}
+
+.lg-lb tr.is-you {
+  background: var(--lg-accent-soft);
+  box-shadow: inset 4px 0 0 var(--lg-accent-strong);
+}
+
+.lg-lb__you {
+  margin-left: var(--lg-s-2);
+  padding: 0 0.4rem;
+  background: var(--lg-accent);
+  border-radius: var(--lg-r-xs);
+  font-size: var(--lg-t-2xs);
+  font-weight: 600;
+  color: var(--lg-on-accent);
+}
+
+.lg-lb__empty {
+  padding: var(--lg-s-5) !important;
+  text-align: center !important;
+  color: var(--lg-text-2);
+}
+
+@media (max-width: 34rem) {
+  .lg-lb__opt {
+    display: none;
+  }
+}

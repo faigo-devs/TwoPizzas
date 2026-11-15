@@ -1,0 +1,99 @@
+---
+import Base from '../layouts/Base.astro';
+import { Gallery } from '../kit/Gallery.tsx';
+import { BoardScreen, LobbyScreen, PlanningScreen, RetroScreen, StartScreen } from '../kit/Screens.tsx';
+
+if (import.meta.env.DEV) await import('../styles/kit.css');
+
+export function getStaticPaths() {
+  return import.meta.env.DEV ? [{ params: { kit: 'kit' } }] : [];
+}
+
+const screens = [
+  { id: 'screen-start', title: 'Start' },
+  { id: 'screen-lobby', title: 'Lobby' },
+  { id: 'screen-planning', title: 'Planning, poker mid-reveal' },
+  { id: 'screen-board', title: 'Board, item workspace, info you hold' },
+  { id: 'screen-retro', title: 'Retrospective' },
+];
+const sections = ['tokens', 'buttons', 'fields', 'people', 'items', 'columns', 'timers', 'phase', 'poker', 'retro', 'puzzle', 'charts', 'ro', 'footer'];
+---
+
+<Base title="Kit · LGTM" noindex>
+  <main id="main" class="lg-page">
+    <header class="lg-kit-hero">
+      <p class="lg-eyebrow">Development only</p>
+      <h1>LGTM kit</h1>
+      <p class="lg-muted">Tokens, every component in every state, and five composed screens with mock data.</p>
+      <div class="lg-cluster">
+        <div data-kit-theme>
+          <fieldset class="lg-seg">
+            <legend class="lg-sr">Theme</legend>
+            <label class="lg-seg__opt">
+              <input type="radio" name="kit-theme" value="dark" />
+              <span class="lg-seg__face">Dark</span>
+            </label>
+            <label class="lg-seg__opt">
+              <input type="radio" name="kit-theme" value="light" />
+              <span class="lg-seg__face">Light</span>
+            </label>
+          </fieldset>
+        </div>
+      </div>
+      <nav class="lg-kit-nav" aria-label="Kit sections">
+        {screens.map((screen) => <a href={`#${screen.id}`}>{screen.title}</a>)}
+        {sections.map((section) => <a href={`#${section}`}>{section}</a>)}
+      </nav>
+    </header>
+
+    <div class="lg-kit-screens">
+      <section class="lg-kit-screen" id="screen-start">
+        <h2 class="lg-kit-screen__label"><span>1</span> Start</h2>
+        <div class="lg-kit-screen__frame"><StartScreen /></div>
+      </section>
+      <section class="lg-kit-screen" id="screen-lobby">
+        <h2 class="lg-kit-screen__label"><span>2</span> Lobby</h2>
+        <div class="lg-kit-screen__frame"><LobbyScreen /></div>
+      </section>
+      <section class="lg-kit-screen" id="screen-planning">
+        <h2 class="lg-kit-screen__label"><span>3</span> Planning, poker mid-reveal</h2>
+        <div class="lg-kit-screen__frame"><PlanningScreen /></div>
+      </section>
+      <section class="lg-kit-screen" id="screen-board">
+        <h2 class="lg-kit-screen__label"><span>4</span> Board, item workspace, info you hold</h2>
+        <div class="lg-kit-screen__frame"><BoardScreen /></div>
+      </section>
+      <section class="lg-kit-screen" id="screen-retro">
+        <h2 class="lg-kit-screen__label"><span>5</span> Retrospective</h2>
+        <div class="lg-kit-screen__frame"><RetroScreen /></div>
+      </section>
+    </div>
+
+    <Gallery />
+  </main>
+
+  <script is:inline>
+    (function () {
+      var root = document.documentElement;
+      function apply(theme) {
+        root.setAttribute('data-theme', theme);
+        try {
+          localStorage.setItem('lg-theme', theme);
+        } catch (error) {}
+        document.querySelectorAll('input[type="radio"][name$="-theme"]').forEach(function (input) {
+          input.checked = input.value === theme;
+        });
+      }
+      apply(root.getAttribute('data-theme') || 'dark');
+      document.addEventListener('change', function (event) {
+        var input = event.target;
+        if (input && input.name && input.name.slice(-6) === '-theme') apply(input.value);
+      });
+      document.addEventListener('click', function (event) {
+        var card = event.target.closest('[data-kit-flip] .lg-poker');
+        if (!card) return;
+        card.classList.toggle('is-down');
+      });
+    })();
+  </script>
+</Base>

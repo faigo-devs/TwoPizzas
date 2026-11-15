@@ -1,0 +1,18 @@
+{
+  "name": "lgtm-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "wrangler dev --port 8787",
+    "check": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "smoke": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/smoke.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.162.0"
+  }
+}

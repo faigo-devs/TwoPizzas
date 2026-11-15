@@ -1,0 +1,40 @@
+---
+import '../styles/index.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  lang?: string;
+  noindex?: boolean;
+  skipLabel?: string;
+}
+
+const { title, description = '', lang = 'en', noindex = false, skipLabel = 'Skip to content' } = Astro.props;
+---
+
+<!doctype html>
+<html lang={lang} data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline>
+      (function () {
+        var theme = 'dark';
+        try {
+          var saved = localStorage.getItem('lg-theme');
+          if (saved === 'light' || saved === 'dark') theme = saved;
+        } catch (error) {}
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="lg-skip" href="#main">{skipLabel}</a>
+    <slot />
+  </body>
+</html>
