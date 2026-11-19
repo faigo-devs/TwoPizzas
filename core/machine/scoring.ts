@@ -1,7 +1,8 @@
 import { config } from '../config.ts';
 import type { IterationMetrics, IterationNumber, LeaderboardEntry, RoomState, Score } from '../types.ts';
 import { agreementOutcome } from './agreements.ts';
-import { iterationAt, workElapsed } from './util.ts';
+import { rulesFor } from './rules.ts';
+import { iterationAt } from './util.ts';
 
 function average(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -13,6 +14,7 @@ function average(values: number[]): number | null {
  */
 export function computeMetrics(s: RoomState, iteration: IterationNumber): IterationMetrics {
   const state = iterationAt(s, iteration);
+  const rules = rulesFor(s);
   const verdictItems = state.verdicts.flatMap((verdict) => {
     const item = s.items.find((own) => own.id === verdict.itemId);
     return item === undefined ? [] : [{ item, outcome: verdict.outcome }];
@@ -28,24 +30,16 @@ export function computeMetrics(s: RoomState, iteration: IterationNumber): Iterat
           .filter((item) => item.theme === goalTheme)
           .every((item) => item.status === 'done' && item.outcome === 'accepted');
   const valueDelivered = accepted.reduce((sum, entry) => sum + entry.item.value, 0);
-  const kanban = s.framework === 'kanban';
-  const endAt = state.flowEndedAt ?? s.now;
   const cycleTimesMs = verdictItems.flatMap((entry) => {
     const { startedAt, doneAt } = entry.item.times;
     if (startedAt === null || doneAt === null) return [];
-    return [kanban ? workElapsed(state, startedAt, doneAt) : doneAt - startedAt];
+    return [rules.cycleTime(state, startedAt, doneAt)];
   });
   const open = s.items.filter(
     (item) => item.iteration === iteration && (item.status === 'doing' || item.status === 'review'),
   );
   const openAges = open.map((item) => {
-    const startedAt = item.times.startedAt;
-    const ageMs = kanban
-      ? startedAt === null
-        ? 0
-        : workElapsed(state, startedAt, endAt)
-      : s.now - (startedAt ?? s.now);
-    return { itemId: item.id, ageMs };
+    return { itemId: item.id, ageMs: rules.openAge(s, state, item.times.startedAt) };
   });
   return {
     iteration,
@@ -61,7 +55,7 @@ export function computeMetrics(s: RoomState, iteration: IterationNumber): Iterat
     wipMax: state.signals.wipMax,
     openAges,
     agreement: agreementOutcome(s),
-    ...(kanban ? { wipLimits: { ...state.wipLimits } } : {}),
+    ...(rules.wipLimits ? { wipLimits: { ...state.wipLimits } } : {}),
   };
 }
 

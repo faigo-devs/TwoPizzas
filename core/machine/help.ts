@@ -1,5 +1,6 @@
 import { config } from '../config.ts';
 import type { HelpProposal, HelpQuestion, RetroHelpState, RoomState } from '../types.ts';
+import { rulesFor } from './rules.ts';
 import { currentIteration, iterationAt } from './util.ts';
 
 interface Facts {
@@ -31,10 +32,10 @@ function factsOf(s: RoomState): Facts {
   const limit = iteration.wipLimits.inProgress;
   const first = iteration.iteration === 2 ? iterationAt(s, 1).metrics : null;
   return {
-    kanban: s.framework === 'kanban',
+    kanban: rulesFor(s).wipLimits,
     iteration: iteration.iteration,
     inProgressLimit: limit,
-    limitReached: limit !== null && (sig.inProgressMax ?? 0) >= limit,
+    limitReached: limit !== null && sig.inProgressMax >= limit,
     throughputUp: metrics !== null && first !== null && metrics.throughput > first.throughput,
     players: s.players.length,
     accepted: metrics?.accepted ?? 0,

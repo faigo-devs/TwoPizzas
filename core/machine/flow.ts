@@ -1,7 +1,7 @@
 import { config } from '../config.ts';
 import type { IterationNumber, IterationState, RoomState } from '../types.ts';
 import { generateBacklog, makeArrival, sizeList } from './backlog.ts';
-import { currentIteration } from './util.ts';
+import { currentIteration, workElapsed } from './util.ts';
 
 function count(s: RoomState, status: 'todo' | 'doing' | 'review' | 'done'): number {
   return s.items.filter((item) => item.status === status).length;
@@ -79,4 +79,32 @@ export function pendingArrival(s: RoomState): number | null {
   if (s.phase.kind !== 'work' || s.phase.step !== 'running') return null;
   const state = currentIteration(s);
   return state.arrivalsLeft > 0 ? state.nextArrivalAt : null;
+}
+
+/**
+ * Starts the arrival clock when the first half of the Flow begins.
+ */
+export function flowWorkBegin(s: RoomState, half: 1 | 2): void {
+  if (half === 1) flowBegin(s);
+}
+
+/**
+ * Lets the requests due so far arrive while the Flow clock runs.
+ */
+export function flowWorkTick(s: RoomState, cutoff: number): void {
+  arrivalsDue(s, cutoff);
+}
+
+/**
+ * Time one item took to finish, without the time the daily stopped the clock.
+ */
+export function flowCycleTime(state: IterationState, from: number, to: number): number {
+  return workElapsed(state, from, to);
+}
+
+/**
+ * How long an unfinished item has been open at the end of the round, without the stopped time.
+ */
+export function flowOpenAge(s: RoomState, state: IterationState, startedAt: number | null): number {
+  return startedAt === null ? 0 : workElapsed(state, startedAt, state.flowEndedAt ?? s.now);
 }

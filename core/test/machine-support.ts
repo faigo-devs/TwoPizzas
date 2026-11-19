@@ -4,23 +4,29 @@ import { createRoom, nextDeadline, reduce, viewFor } from '../machine/index.ts';
 import type {
   Action,
   Agreement,
+  ItemAction,
   ClientAction,
   PlayerId,
+  KanbanPlayerView,
   Phase,
   PlayerView,
   PuzzleResponse,
   Puzzle,
   ReduceResult,
+  ScrumPlayerView,
   RoomState,
   WorkItem,
 } from '../types.ts';
+import { testSecret } from './support.ts';
 
 export interface Room {
   state: RoomState;
   now: number;
   checks: boolean;
+  rightsEvery?: boolean;
   phases: string[];
   actions: number;
+  record?: Action[];
 }
 
 export function label(state: RoomState): string {
@@ -43,10 +49,10 @@ export function pid(index: number): PlayerId {
   return `p${index + 1}`;
 }
 
-export function newRoom(options: { seed?: number; framework?: 'scrum' | 'kanban'; players?: number } = {}): Room {
+export function newRoom(options: { seed?: number; nameSeed?: number; framework?: 'scrum' | 'kanban'; players?: number } = {}): Room {
   const seed = options.seed ?? 7654321;
   const room: Room = {
-    state: createRoom({ code: 'BCDFG', framework: options.framework ?? 'scrum', seed, now: 1_000 }),
+    state: createRoom({ code: 'BCDFG', framework: options.framework ?? 'scrum', secret: testSecret(seed), nameSeed: options.nameSeed ?? Number.parseInt(testSecret(`name:${seed}`).slice(0, 8), 16), now: 1_000 }),
     now: 1_000,
     checks: true,
     phases: ['lobby'],
@@ -56,6 +62,18 @@ export function newRoom(options: { seed?: number; framework?: 'scrum' | 'kanban'
     server(room, { type: 'server.join', playerId: pid(index), name: null, now: room.now });
   }
   return room;
+}
+
+export function scrumViewOf(state: RoomState, playerId: string, now: number): ScrumPlayerView {
+  const view = viewFor(state, playerId, now);
+  assert.ok(view.framework === 'scrum');
+  return view;
+}
+
+export function kanbanViewOf(state: RoomState, playerId: string, now: number): KanbanPlayerView {
+  const view = viewFor(state, playerId, now);
+  assert.ok(view.framework === 'kanban');
+  return view;
 }
 
 function allViews(room: Room): PlayerView[] {
@@ -68,9 +86,9 @@ function jsonOf(value: unknown): string {
 
 export function assertNoLeak(state: RoomState, view: PlayerView): void {
   const text = jsonOf(view);
-  assert.ok(!/"(answer|puzzle|seed|rng|size|fullPart|dependencyPart|parts|token)"/u.test(text), 'forbidden key in view');
-  const numbers = [state.seed, state.rng, ...state.items.map((item) => item.seed)];
-  for (const value of numbers) assert.ok(!new RegExp(`(?<![0-9])${value}(?![0-9])`, 'u').test(text), 'seed in view');
+  assert.ok(!/"(answer|puzzle|seed|secret|nameSeed|rng|size|fullPart|dependencyPart|parts|token)"/u.test(text), 'forbidden key in view');
+  assert.ok(!new RegExp(`(?<![0-9])${state.nameSeed}(?![0-9])`, 'u').test(text), 'name seed in view');
+  for (const value of [state.secret, ...state.items.map((item) => item.seed)]) assert.ok(!text.includes(value), 'secret in view');
   const allowed = new Set<string>();
   if (view.workspace?.part) allowed.add(jsonOf(view.workspace.part));
   if (view.workspace?.submission) allowed.add(jsonOf(view.workspace.submission));
@@ -97,13 +115,38 @@ export function assertNoLeak(state: RoomState, view: PlayerView): void {
   }
 }
 
-export function checkInvariants(room: Room): void {
-  assert.deepEqual(JSON.parse(JSON.stringify(room.state)), room.state);
-  for (const view of allViews(room)) assertNoLeak(room.state, view);
+const ItemActions: Record<ItemAction, ClientAction> = {
+  'item.take': { type: 'item.take', itemId: '' },
+  'item.leave': { type: 'item.leave', itemId: '' },
+  'item.open.work': { type: 'item.open', itemId: '', mode: 'work' },
+  'item.open.review': { type: 'item.open', itemId: '', mode: 'review' },
+  'item.take_review': { type: 'item.take_review', itemId: '' },
+  'help.promise': { type: 'help.promise', itemId: '' },
+  'help.withdraw': { type: 'help.withdraw', itemId: '' },
+};
+
+export function assertItemRights(room: Room, view: PlayerView): void {
+  for (const own of view.items) {
+    for (const [name, template] of Object.entries(ItemActions) as [ItemAction, ClientAction][]) {
+      const action = { ...template, itemId: own.id } as ClientAction;
+      const result = reduce(room.state, { ...action, playerId: view.selfId, now: room.now });
+      assert.equal(result.ok, own.actions.includes(name), `${name} on ${own.id} by ${view.selfId}`);
+    }
+  }
 }
 
-function settle(room: Room, result: ReduceResult): ReduceResult {
+export function checkInvariants(room: Room): void {
+  assert.deepEqual(structuredClone(room.state), room.state);
+  const board = room.state.phase.kind === 'work' || room.state.phase.kind === 'daily';
+  for (const view of allViews(room)) {
+    assertNoLeak(room.state, view);
+    if (board && (room.rightsEvery === true || room.actions % 11 === 0)) assertItemRights(room, view);
+  }
+}
+
+function settle(room: Room, result: ReduceResult, action: Action): ReduceResult {
   if (!result.ok) return result;
+  room.record?.push(action);
   room.state = result.state;
   room.actions += 1;
   const current = label(room.state);
@@ -113,12 +156,13 @@ function settle(room: Room, result: ReduceResult): ReduceResult {
 }
 
 export function server(room: Room, action: Action): ReduceResult {
-  return settle(room, reduce(room.state, action));
+  return settle(room, reduce(room.state, action), action);
 }
 
 export function tryAct(room: Room, playerId: PlayerId, action: ClientAction): ReduceResult {
   const before = JSON.stringify(room.state);
-  const result = settle(room, reduce(room.state, { ...action, playerId, now: room.now }));
+  const stamped: Action = { ...action, playerId, now: room.now };
+  const result = settle(room, reduce(room.state, stamped), stamped);
   if (!result.ok) assert.equal(JSON.stringify(room.state), before, 'a refused action changed the state');
   return result;
 }
@@ -425,12 +469,14 @@ export function playGame(options: {
   seed: number;
   style?: Partial<TeamStyle>;
   checks?: boolean;
+  rightsEvery?: boolean;
   framework?: 'scrum' | 'kanban';
 }): Room {
   const framework = options.framework ?? 'scrum';
   const style: TeamStyle = { ...(framework === 'kanban' ? kanbanStyle : defaultStyle), ...options.style };
   const room = newRoom({ seed: options.seed, players: 1, framework });
   room.checks = options.checks ?? true;
+  room.rightsEvery = options.rightsEvery ?? false;
   playLobby(room, options.players);
   playIteration(room, style);
   playIteration(room, style);

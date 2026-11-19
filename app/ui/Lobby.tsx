@@ -1,5 +1,5 @@
 import { Avatar, type AvatarProps } from './Avatar.tsx';
-import { Button } from './Button.tsx';
+import { Button, IconButton } from './Button.tsx';
 import { cx } from './cx.ts';
 
 export interface RoomCodeProps {
@@ -32,9 +32,21 @@ export function RoomCode({ code, label, copyLabel, copied = false, copiedLabel, 
   );
 }
 
+export interface PlayerRemoval {
+  label: string;
+  confirmText: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  confirming: boolean;
+  onAsk: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
 export interface PlayerRowProps {
   player: AvatarProps;
   status?: string;
+  removal?: PlayerRemoval;
 }
 
 export interface PlayerListProps {
@@ -54,6 +66,19 @@ export function PlayerList({ title, rows, emptySeats, emptyLabel }: PlayerListPr
         <li key={row.player.name} class={cx('lg-players__row', row.player.disconnected && 'is-off')}>
           <Avatar {...row.player} size="md" showName />
           {row.status ? <span class="lg-players__status">{row.status}</span> : null}
+          {row.removal === undefined ? null : row.removal.confirming ? (
+            <span class="lg-players__remove" role="group" aria-label={row.removal.confirmText}>
+              <span class="lg-players__ask">{row.removal.confirmText}</span>
+              <Button variant="danger" size="sm" onClick={row.removal.onConfirm}>
+                {row.removal.confirmLabel}
+              </Button>
+              <Button variant="quiet" size="sm" onClick={row.removal.onCancel}>
+                {row.removal.cancelLabel}
+              </Button>
+            </span>
+          ) : (
+            <IconButton icon="x" label={row.removal.label} onClick={row.removal.onAsk} />
+          )}
         </li>
       ))}
       {Array.from({ length: emptySeats }, (_, index) => (

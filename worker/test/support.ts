@@ -19,6 +19,7 @@ import type {
   StoragePort,
 } from '../src/ports.ts';
 import { RoomHandler } from '../src/room.ts';
+import { sha256Hex } from '../../core/sha256.ts';
 import { playGame } from '../../core/test/machine-support.ts';
 
 export class FakeStorage implements StoragePort {
@@ -31,8 +32,12 @@ export class FakeStorage implements StoragePort {
     return value === undefined ? undefined : (structuredClone(value) as T);
   }
 
-  async put(key: string, value: unknown): Promise<void> {
-    this.data.set(key, structuredClone(value));
+  puts: string[][] = [];
+  alarmWrites = 0;
+
+  async put(entries: Record<string, unknown>): Promise<void> {
+    this.puts.push(Object.keys(entries));
+    for (const [key, value] of Object.entries(entries)) this.data.set(key, structuredClone(value));
   }
 
   async deleteAll(): Promise<void> {
@@ -46,6 +51,7 @@ export class FakeStorage implements StoragePort {
   }
 
   async setAlarm(time: number): Promise<void> {
+    this.alarmWrites += 1;
     this.alarm = time;
   }
 
@@ -62,6 +68,9 @@ export class FakeSocket implements SocketPort {
   sent: string[] = [];
   closed: { code: number; reason: string } | null = null;
   attachment: SocketAttachment | null = null;
+  autoResponseAt: number | null = null;
+  finished = false;
+  reportsOpenAfterClose = true;
 
   send(text: string): void {
     assert.equal(this.closed, null, 'send after close');
@@ -80,6 +89,14 @@ export class FakeSocket implements SocketPort {
     this.attachment = { ...value };
   }
 
+  isOpen(): boolean {
+    return this.closed === null || this.reportsOpenAfterClose;
+  }
+
+  lastAutoResponse(): number | null {
+    return this.autoResponseAt;
+  }
+
   messages(): ServerMessage[] {
     return this.sent.map((text) => JSON.parse(text) as ServerMessage);
   }
@@ -95,7 +112,7 @@ export class FakeSocket implements SocketPort {
   welcome(): { playerId: string; token: string } {
     const found = this.messages().find((message) => message.t === 'welcome');
     assert.ok(found !== undefined && found.t === 'welcome', 'no welcome');
-    return { playerId: found.playerId, token: found.token };
+    return { playerId: found.playerId, token: found.token ?? '' };
   }
 
   clear(): void {
@@ -146,7 +163,7 @@ export class Harness {
   private makeHandler(): RoomHandler {
     return new RoomHandler({
       storage: this.storage,
-      sockets: () => this.sockets.filter((socket) => socket.closed === null),
+      sockets: () => this.sockets.filter((socket) => !socket.finished),
       now: () => this.clock,
       random: (bytes) => this.random(bytes),
       leaderboard: this.leaderboard,
@@ -169,6 +186,15 @@ export class Harness {
     return socket;
   }
 
+  async connectAs(header: string | null): Promise<{ socket: FakeSocket | null; protocol: string | null; refused: { status: number; code: string } | null }> {
+    const admission = await this.handler.admit(header);
+    if (!admission.ok) return { socket: null, protocol: null, refused: { status: admission.status, code: admission.code } };
+    const socket = new FakeSocket();
+    this.sockets.push(socket);
+    await this.handler.accepted(socket, admission.seat);
+    return { socket, protocol: admission.protocol, refused: null };
+  }
+
   async send(socket: FakeSocket, message: ClientMessage | string): Promise<void> {
     await this.handler.onMessage(socket, typeof message === 'string' ? message : JSON.stringify(message));
   }
@@ -186,6 +212,23 @@ export class Harness {
   async drop(socket: FakeSocket): Promise<void> {
     await this.handler.onClose(socket);
     socket.closed ??= { code: 1006, reason: '' };
+    socket.finished = true;
+  }
+
+  complete(socket: FakeSocket): void {
+    assert.notEqual(socket.closed, null, 'handshake of an open socket');
+    socket.finished = true;
+  }
+
+  pingAll(): void {
+    for (const socket of this.sockets) if (socket.closed === null && !socket.finished) socket.autoResponseAt = this.clock;
+  }
+
+  async fireAlarmAlive(): Promise<void> {
+    assert.notEqual(this.storage.alarm, null, 'no alarm set');
+    this.clock = Math.max(this.clock, this.storage.alarm ?? 0);
+    this.pingAll();
+    await this.handler.alarm();
   }
 
   async fireAlarm(): Promise<void> {
@@ -280,10 +323,16 @@ export async function toSummary(h: Harness): Promise<Map<string, FakeSocket>> {
   const played = playGame({ players: 3, seed: 987654, checks: false }).state;
   const state = { ...played, code: 'BCDFG' };
   const tokens: Record<string, string> = {};
-  for (const player of state.players) tokens[player.id] = `token-${player.id}`;
-  await h.storage.put('state', state);
-  await h.storage.put('tokens', tokens);
-  await h.storage.put('meta', { publishId: 'fixed-publish-id', outbox: null, outboxAt: 0 });
+  const tokenHashes: Record<string, string> = {};
+  for (const player of state.players) {
+    tokens[player.id] = `token-${player.id}`;
+    tokenHashes[player.id] = sha256Hex(tokens[player.id] as string);
+  }
+  await h.storage.put({
+    state,
+    tokenHashes,
+    meta: { publishId: 'fixed-publish-id', outbox: null, outboxAt: 0 },
+  });
   h.clock = state.now + 1000;
   h.hibernate();
   const sockets = new Map<string, FakeSocket>();

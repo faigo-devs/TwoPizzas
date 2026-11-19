@@ -132,20 +132,21 @@ export interface ChipChoiceProps {
   name: string;
   options: { value: string; label: string }[];
   value?: string;
+  disabled?: boolean;
   onChange?: (value: string) => void;
 }
 
 /**
  * Wrapping group of radio chips, for choosing one action out of several.
  */
-export function ChipChoice({ legend, name, options, value, onChange }: ChipChoiceProps) {
+export function ChipChoice({ legend, name, options, value, disabled, onChange }: ChipChoiceProps) {
   return (
     <fieldset class="lg-chips">
       <legend class="lg-chips__legend">{legend}</legend>
       <div class="lg-chips__row">
         {options.map((option) => (
           <label key={option.value} class="lg-chip">
-            <input type="radio" name={name} value={option.value} checked={option.value === value} onChange={() => onChange?.(option.value)} />
+            <input type="radio" name={name} value={option.value} checked={option.value === value} disabled={disabled} onChange={() => onChange?.(option.value)} />
             <span class="lg-chip__face">{option.label}</span>
           </label>
         ))}

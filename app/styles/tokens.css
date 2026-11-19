@@ -22,6 +22,13 @@
   --lg-accent-soft: rgb(255 210 63 / 12%);
   --lg-focus: #ffffff;
 
+  --lg-tour: #f472d0;
+  --lg-tour-strong: #f98ddb;
+  --lg-tour-text: #f9a0e0;
+  --lg-tour-bg: #1f1224;
+  --lg-tour-soft: rgb(244 114 208 / 14%);
+  --lg-on-tour: #1c0a19;
+
   --lg-todo: #9eacc7;
   --lg-doing: #66aaff;
   --lg-blocked: #ff8c66;
@@ -58,7 +65,7 @@
   --lg-font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --lg-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
 
-  --lg-t-2xs: 0.6875rem;
+  --lg-t-2xs: 0.75rem;
   --lg-t-xs: 0.75rem;
   --lg-t-sm: 0.875rem;
   --lg-t-base: 1rem;
@@ -98,61 +105,7 @@
   --lg-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --lg-target: 2.75rem;
-  --lg-target-min: 2.5rem;
+  --lg-target-min: 2.75rem;
   --lg-measure: 68ch;
   --lg-page: 80rem;
-}
-
-:root[data-theme='light'] {
-  color-scheme: light;
-
-  --lg-bg: #f3f5f9;
-  --lg-bg-grid: #e8ecf3;
-  --lg-surface: #ffffff;
-  --lg-raised: #ffffff;
-  --lg-sunken: #e9edf4;
-  --lg-overlay: rgb(20 26 38 / 55%);
-
-  --lg-line: #d3dae6;
-  --lg-line-strong: #76839c;
-
-  --lg-text: #131925;
-  --lg-text-2: #46526a;
-  --lg-text-3: #5b6881;
-
-  --lg-accent: #f6c400;
-  --lg-accent-strong: #a67600;
-  --lg-accent-text: #7a5600;
-  --lg-on-accent: #19140a;
-  --lg-accent-soft: rgb(246 196 0 / 16%);
-  --lg-focus: #131925;
-
-  --lg-todo: #4e5c76;
-  --lg-doing: #1b5fd0;
-  --lg-blocked: #b23c0e;
-  --lg-review: #6538cc;
-  --lg-done: #0a7647;
-  --lg-accepted: #0a746f;
-  --lg-rejected: #bf1c3b;
-
-  --lg-todo-bg: rgb(78 92 118 / 9%);
-  --lg-doing-bg: rgb(27 95 208 / 9%);
-  --lg-blocked-bg: rgb(178 60 14 / 9%);
-  --lg-review-bg: rgb(101 56 204 / 9%);
-  --lg-done-bg: rgb(10 118 71 / 9%);
-  --lg-accepted-bg: rgb(10 116 111 / 9%);
-  --lg-rejected-bg: rgb(191 28 59 / 9%);
-
-  --lg-on-fill: #ffffff;
-  --lg-key-edge: rgb(19 25 37 / 30%);
-  --lg-approve: #0a7647;
-  --lg-c1: #5b6881;
-  --lg-c2: #a67600;
-  --lg-paper: #fffdf6;
-  --lg-paper-line: #c9c2ae;
-  --lg-danger: #bf1c3b;
-
-  --lg-shadow-1: 0 1px 2px rgb(19 25 37 / 10%);
-  --lg-shadow-2: 0 4px 14px rgb(19 25 37 / 10%);
-  --lg-shadow-3: 0 12px 36px rgb(19 25 37 / 18%);
 }

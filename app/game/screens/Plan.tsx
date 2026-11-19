@@ -1,22 +1,22 @@
 import { config } from '../../../core/index.ts';
-import type { Card, ItemView, PlanPhase, PlayerView } from '../../../core/index.ts';
+import type { Card, ItemView, PlanPhase, ScrumPlayerView } from '../../../core/index.ts';
 import type { Translate } from '../../i18n/index.ts';
 import { Button } from '../../ui/Button.tsx';
 import { Panel } from '../../ui/Hero.tsx';
 import { GoalOption, PokerCard } from '../../ui/Poker.tsx';
 import { WorkItemCard } from '../../ui/WorkItemCard.tsx';
 import { act } from '../controller.ts';
-import { facilitatorRole, itemLabels, key, markerOf, playerName, statusText } from '../format.ts';
+import { facilitatorRoleDef, itemLabels, lowerFirst, key, markerOf, named, playerName, statusText, themeOf, titleIdOf } from '../format.ts';
 import { ScriptBox, stepTitle } from './Parts.tsx';
 
 export interface PlanProps {
-  view: PlayerView;
+  view: ScrumPlayerView;
   phase: PlanPhase;
   t: Translate;
   scriptStep: number;
 }
 
-function itemCard(item: ItemView, t: Translate) {
+function itemCard(item: ItemView, view: ScrumPlayerView, t: Translate) {
   return (
     <WorkItemCard
       id={item.id}
@@ -27,21 +27,24 @@ function itemCard(item: ItemView, t: Translate) {
       estimate={item.estimate}
       status={markerOf(item)}
       statusLabel={statusText(item, t)}
+      titleId={titleIdOf(item)}
+      {...themeOf(view, item, t)}
       labels={itemLabels(t)}
     />
   );
 }
 
-function GoalStep({ view, t }: { view: PlayerView; t: Translate }) {
+function GoalStep({ view, t }: { view: ScrumPlayerView; t: Translate }) {
   const planning = view.planning;
   if (planning === null) return null;
-  const role = facilitatorRole(view, t);
+  const role = facilitatorRoleDef(view, t);
   const canConfirm = view.controls.includes('confirm_goal');
   const isFacilitator = view.facilitatorId === view.selfId;
   const total = Object.values(planning.goalVotes).reduce((sum, count) => sum + count, 0);
   return (
     <Panel title={t('goal.title')} icon="flag">
       <p class="lg-muted">{t('goal.hint', { role })}</p>
+      <p class="lg-muted">{t('goal.note')}</p>
       <div class="lg-goals" role="radiogroup" aria-label={t('goal.title')}>
         {planning.goalOptions.map((theme) => (
           <GoalOption
@@ -68,7 +71,7 @@ function GoalStep({ view, t }: { view: PlayerView; t: Translate }) {
   );
 }
 
-function Totals({ view, t }: { view: PlayerView; t: Translate }) {
+function Totals({ view, t }: { view: ScrumPlayerView; t: Translate }) {
   const planning = view.planning;
   if (planning === null) return null;
   return (
@@ -77,19 +80,16 @@ function Totals({ view, t }: { view: PlayerView; t: Translate }) {
         <span>{t('poker.sum')}</span>
         <strong>{planning.totalEstimate}</strong>
       </div>
-      <p class="lg-muted lg-sum-note">
-        {t('poker.estimated', { count: planning.estimatedCount })}
-        {planning.previousVelocity !== null ? ` · ${t('poker.velocity', { velocity: planning.previousVelocity })}` : ''}
-      </p>
+      {planning.previousVelocity !== null ? <p class="lg-muted lg-sum-note">{t('poker.velocity', { velocity: planning.previousVelocity })}</p> : null}
     </>
   );
 }
 
-function EstimateStep({ view, t }: { view: PlayerView; t: Translate }) {
+function EstimateStep({ view, t }: { view: ScrumPlayerView; t: Translate }) {
   const planning = view.planning;
   if (planning === null) return null;
   const poker = planning.poker;
-  const role = facilitatorRole(view, t);
+  const role = facilitatorRoleDef(view, t);
   const isFacilitator = view.facilitatorId === view.selfId;
   const item = poker === null ? undefined : view.items.find((own) => own.id === poker.itemId);
   const present = view.players.filter((player) => player.connected);
@@ -104,7 +104,7 @@ function EstimateStep({ view, t }: { view: PlayerView; t: Translate }) {
       <div class="lg-plan__current">
         <div>
           <p class="lg-eyebrow lg-plan__next">{t('poker.itemNext')}</p>
-          {itemCard(item, t)}
+          {itemCard(item, view, t)}
         </div>
         {view.controls.includes('poker_reveal') ? (
           <Button variant="secondary" size="sm" icon="eye" onClick={() => act({ type: 'plan.poker_reveal' })}>
@@ -115,21 +115,8 @@ function EstimateStep({ view, t }: { view: PlayerView; t: Translate }) {
       <p class="lg-muted" role="status">
         {poker.revealed
           ? t('poker.revealed')
-          : `${t('poker.voteCount', { voted: poker.voted.length, total: present.length })} ${poker.myVote === null ? t('poker.waiting') : ''}`}
+          : [t('poker.voteCount', { voted: poker.voted.length, total: present.length }), poker.myVote === null ? t('poker.waiting') : null].filter(Boolean).join(' · ')}
       </p>
-      <div class="lg-poker-table" role="group" aria-label={t('poker.cardsOnTable')}>
-        {present.map((player) => {
-          const name = labelOf(player.id);
-          const shown = poker.votes?.[player.id];
-          if (shown !== undefined) {
-            return <PokerCard key={player.id} value={shown} owner={name} ownerNumber={player.seat} label={t('poker.shown', { name, value: shown })} revealing />;
-          }
-          if (poker.voted.includes(player.id)) {
-            return <PokerCard key={player.id} faceDown owner={name} ownerNumber={player.seat} label={t('poker.voted', { name })} />;
-          }
-          return null;
-        })}
-      </div>
       {!poker.revealed ? (
         <div class="lg-poker-hand" role="group" aria-label={t('poker.yourCards')}>
           {config.poker.cards.map((value) => (
@@ -144,6 +131,19 @@ function EstimateStep({ view, t }: { view: PlayerView; t: Translate }) {
           ))}
         </div>
       ) : null}
+      <div class="lg-poker-table" role="group" aria-label={t('poker.cardsOnTable')}>
+        {present.map((player) => {
+          const name = labelOf(player.id);
+          const shown = poker.votes?.[player.id];
+          if (shown !== undefined) {
+            return <PokerCard key={player.id} value={shown} owner={name} ownerNumber={player.seat} label={t('poker.shown', { name, value: shown })} revealing />;
+          }
+          if (poker.voted.includes(player.id)) {
+            return <PokerCard key={player.id} faceDown owner={name} ownerNumber={player.seat} label={t('poker.voted', { name })} />;
+          }
+          return null;
+        })}
+      </div>
       {isFacilitator ? (
         <div class="lg-stack">
           <div class="lg-cluster">
@@ -164,6 +164,7 @@ function EstimateStep({ view, t }: { view: PlayerView; t: Translate }) {
             ) : null}
           </div>
           {poker.revealed ? <p class="lg-muted">{t('poker.revotesLeft', { count: poker.revotesLeft })}</p> : null}
+          {poker.revealed && poker.median !== null ? <p class="lg-muted">{t('poker.middleNote')}</p> : null}
           {view.controls.includes('poker_record') ? (
             <div class="lg-stack" role="group" aria-label={t('poker.recordOther')}>
               <p class="lg-muted">{t('poker.recordOther')}</p>
@@ -184,10 +185,10 @@ function EstimateStep({ view, t }: { view: PlayerView; t: Translate }) {
   );
 }
 
-function CommitStep({ view, t }: { view: PlayerView; t: Translate }) {
+function CommitStep({ view, t }: { view: ScrumPlayerView; t: Translate }) {
   const planning = view.planning;
   if (planning === null) return null;
-  const role = facilitatorRole(view, t);
+  const role = facilitatorRoleDef(view, t);
   const pulled = view.items.filter((item) => item.status === 'todo');
   const backlog = view.items.filter((item) => item.status === 'backlog');
   const isFacilitator = view.facilitatorId === view.selfId;
@@ -197,6 +198,7 @@ function CommitStep({ view, t }: { view: PlayerView; t: Translate }) {
       <Panel title={t('commit.title')} icon="flag">
         <p class="lg-muted">{t('commit.hint')}</p>
         <Totals view={view} t={t} />
+        {pulled.some((item) => item.estimate === null) ? <p class="lg-muted">{t('commit.unestimated')}</p> : null}
         {isFacilitator ? (
           <div class="lg-stack">
             <Button variant="primary" size="lg" icon="play" disabled={!canStart} onClick={() => act({ type: 'phase.advance' })}>
@@ -214,8 +216,8 @@ function CommitStep({ view, t }: { view: PlayerView; t: Translate }) {
             {pulled.length === 0 ? <li class="lg-muted">{t('board.empty')}</li> : null}
             {pulled.map((item) => (
               <li key={item.id} class="lg-pull">
-                {itemCard(item, t)}
-                <Button variant="quiet" size="sm" icon="up" onClick={() => act({ type: 'plan.unpull', itemId: item.id })}>
+                {itemCard(item, view, t)}
+                <Button variant="quiet" size="sm" icon="up" label={named(t('commit.unpull'), item)} onClick={() => act({ type: 'plan.unpull', itemId: item.id })}>
                   {t('commit.unpull')}
                 </Button>
               </li>
@@ -227,8 +229,8 @@ function CommitStep({ view, t }: { view: PlayerView; t: Translate }) {
             {backlog.length === 0 ? <li class="lg-muted">{t('board.empty')}</li> : null}
             {backlog.map((item) => (
               <li key={item.id} class="lg-pull">
-                {itemCard(item, t)}
-                <Button variant="secondary" size="sm" icon="down" onClick={() => act({ type: 'plan.pull', itemId: item.id })}>
+                {itemCard(item, view, t)}
+                <Button variant="secondary" size="sm" icon="down" label={named(t('commit.pull'), item)} onClick={() => act({ type: 'plan.pull', itemId: item.id })}>
                   {t('commit.pull')}
                 </Button>
               </li>
@@ -260,9 +262,10 @@ export function Plan({ view, phase, t, scriptStep }: PlanProps) {
         </div>
         {position > 0 ? <span class="lg-muted">{t('phase.stepOf', { n: position, total: steps.length })}</span> : null}
       </div>
+      <p class="lg-muted lg-legend">{t('item.legend')}</p>
       {goal !== null ? (
         <p class="lg-goalline">
-          <strong>{t('goal.confirmed')}:</strong> {t('goal.option', { theme: goal })}
+          <strong>{t('goal.confirmed')}:</strong> {lowerFirst(t('goal.option', { theme: goal }))}
         </p>
       ) : null}
       <div class="lg-plan">

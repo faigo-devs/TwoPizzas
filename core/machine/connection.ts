@@ -1,6 +1,7 @@
 import { config } from '../config.ts';
-import type { PlayerId, RoomState, ServerAction } from '../types.ts';
-import { arrivalsDue, pendingArrival } from './flow.ts';
+import type { Player, PlayerId, RoomState, ServerAction, StampedClientAction } from '../types.ts';
+import { pendingArrival } from './flow.ts';
+import { rulesFor } from './rules.ts';
 import { dropFromLobby } from './lobby.ts';
 import { endWorkHalf } from './transitions.ts';
 import { releaseAll } from './work.ts';
@@ -15,6 +16,7 @@ export function playerConnected(s: RoomState, action: Extract<ServerAction, { ty
   if (player === undefined) return 'not_allowed';
   player.connected = true;
   player.disconnectedAt = null;
+  player.pausedUntil = null;
   refreshEmpty(s);
   return null;
 }
@@ -31,6 +33,35 @@ export function playerDisconnected(
   }
   refreshEmpty(s);
   return null;
+}
+
+function graceBase(player: Player): number | null {
+  if (player.disconnectedAt === null) return null;
+  return player.pausedUntil === null ? player.disconnectedAt : Math.max(player.disconnectedAt, player.pausedUntil);
+}
+
+/**
+ * Handles a player's own pause and resume; a pause is allowed once the game has started and until the summary.
+ */
+export function pauseAction(s: RoomState, action: StampedClientAction, player: Player): Refusal {
+  if (s.phase.kind === 'lobby' || s.phase.kind === 'summary') return 'not_allowed';
+  if (action.type === 'player.resume') {
+    player.pausedUntil = null;
+    return null;
+  }
+  if (action.type !== 'player.pause') return 'bad_request';
+  const { minMinutes, maxMinutes } = config.pause;
+  if (!Number.isInteger(action.minutes) || action.minutes < minMinutes || action.minutes > maxMinutes) return 'bad_request';
+  player.pausedUntil = s.now + action.minutes * 60_000;
+  return null;
+}
+
+function endPauses(s: RoomState): void {
+  for (const player of s.players) {
+    if (player.pausedUntil === null || s.now < player.pausedUntil) continue;
+    if (player.disconnectedAt !== null) player.disconnectedAt = Math.max(player.disconnectedAt, player.pausedUntil);
+    player.pausedUntil = null;
+  }
 }
 
 function holdsSomething(s: RoomState, id: PlayerId): boolean {
@@ -54,9 +85,11 @@ function roleHeld(s: RoomState, id: PlayerId): boolean {
  */
 function leaveTime(s: RoomState, id: PlayerId): number | null {
   const player = findPlayer(s, id);
-  if (player === undefined || player.connected || player.disconnectedAt === null) return null;
+  if (player === undefined || player.connected) return null;
+  const base = graceBase(player);
+  if (base === null) return null;
   const pending = s.phase.kind === 'lobby' || holdsSomething(s, id) || roleHeld(s, id);
-  return pending ? player.disconnectedAt + config.room.reconnectGraceMs : null;
+  return pending ? base + config.room.reconnectGraceMs : null;
 }
 
 /**
@@ -72,6 +105,7 @@ export function nextDeadline(s: RoomState): number | null {
   if (arrival !== null) times.push(arrival);
   for (const player of s.players) {
     if (player.open !== null) times.push(player.open.readyAt);
+    if (player.pausedUntil !== null) times.push(player.pausedUntil);
     const leave = leaveTime(s, player.id);
     if (leave !== null) times.push(leave);
   }
@@ -86,8 +120,8 @@ function passRoles(s: RoomState): void {
     if (next !== undefined) s.hostId = next.id;
   }
   const fac = s.facilitatorId === null ? undefined : findPlayer(s, s.facilitatorId);
-  if (fac !== undefined && !fac.connected && fac.disconnectedAt !== null) {
-    if (s.now >= fac.disconnectedAt + config.room.reconnectGraceMs) {
+  if (fac !== undefined && !fac.connected && graceBase(fac) !== null) {
+    if (s.now >= (graceBase(fac) ?? 0) + config.room.reconnectGraceMs) {
       const next = nextConnectedAfter(s, fac.id);
       if (next !== undefined) {
         s.facilitatorId = next.id;
@@ -101,9 +135,10 @@ function passRoles(s: RoomState): void {
  * Processes everything that is due at the action's time; calling it when nothing is due changes nothing.
  */
 export function deadline(s: RoomState): Refusal {
+  endPauses(s);
   const phase = s.phase;
-  if (phase.kind === 'work' && phase.step === 'running' && s.framework === 'kanban') {
-    arrivalsDue(s, Math.min(s.now, phase.timebox.deadline ?? s.now));
+  if (phase.kind === 'work' && phase.step === 'running') {
+    rulesFor(s).onWorkTick(s, Math.min(s.now, phase.timebox.deadline ?? s.now));
   }
   if (phase.kind === 'work' && phase.step === 'running' && phase.timebox.hard) {
     if (phase.timebox.deadline !== null && s.now >= phase.timebox.deadline) endWorkHalf(s);

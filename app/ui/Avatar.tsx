@@ -8,6 +8,7 @@ export interface AvatarProps {
   facilitator?: boolean;
   you?: boolean;
   disconnected?: boolean;
+  awayLabel?: string;
   empty?: boolean;
   size?: 'sm' | 'md' | 'lg';
   roleLabels?: { facilitator: string; you: string; disconnected: string };
@@ -27,16 +28,17 @@ export function Avatar({
   facilitator,
   you,
   disconnected,
+  awayLabel,
   empty,
   size = 'md',
   roleLabels = defaultRoles,
   showName = false,
 }: AvatarProps) {
   const text = empty ? '?' : (initials ?? (number !== undefined ? String(number) : name.slice(0, 2).toUpperCase()));
-  const roles = [facilitator ? roleLabels.facilitator : '', you ? roleLabels.you : '', disconnected ? roleLabels.disconnected : ''].filter(Boolean);
+  const roles = [facilitator ? roleLabels.facilitator : '', you ? roleLabels.you : '', disconnected ? roleLabels.disconnected : '', awayLabel ?? ''].filter(Boolean);
   return (
-    <span class={cx('lg-avatar', `lg-avatar--${size}`, `lg-avatar--c${colour % 6}`, empty && 'is-empty', disconnected && 'is-off', you && 'is-you')}>
-      <span class="lg-avatar__disc" role="img" aria-label={[name, ...roles].join(', ')}>
+    <span class={cx('lg-avatar', `lg-avatar--${size}`, `lg-avatar--c${colour % 6}`, empty && 'is-empty', disconnected && 'is-off', awayLabel && 'is-away', you && 'is-you')}>
+      <span class="lg-avatar__disc" title={awayLabel} role="img" aria-label={[name, ...roles].join(', ')}>
         <span aria-hidden="true">{text}</span>
         {facilitator ? (
           <svg class="lg-avatar__crown" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
@@ -44,11 +46,13 @@ export function Avatar({
           </svg>
         ) : null}
         {disconnected ? <span class="lg-avatar__off" aria-hidden="true" /> : null}
+        {awayLabel ? <span class="lg-avatar__away-mark" aria-hidden="true" /> : null}
       </span>
       {showName ? (
         <span class="lg-avatar__name">
           {name}
           {you ? <span class="lg-avatar__tag"> · {roleLabels.you}</span> : null}
+          {awayLabel ? <span class="lg-avatar__tag"> · {awayLabel}</span> : null}
         </span>
       ) : null}
     </span>

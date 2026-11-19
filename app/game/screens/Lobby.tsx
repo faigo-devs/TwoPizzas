@@ -24,13 +24,16 @@ export function Lobby({ view, state, t }: LobbyProps) {
   const [name, setName] = useState(self?.name ?? '');
   const sent = useRef(self?.name ?? '');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const isHost = view.hostId === view.selfId;
   const seated = view.players.length;
   const free = Math.max(0, config.players.max - seated);
   const canStart = view.controls.includes('start_game');
+  const canRemove = view.controls.includes('kick_player');
+  const canLock = view.controls.includes('lock_room');
+  const canUnlock = view.controls.includes('unlock_room');
   const facilitator = view.players.find((player) => player.id === view.facilitatorId);
   const volunteering = self !== undefined && self.role === 'facilitator' && !self.isHost;
-  const kanban = view.framework === 'kanban';
 
   useEffect(
     () => () => {
@@ -51,8 +54,7 @@ export function Lobby({ view, state, t }: LobbyProps) {
   }
 
   let startNote = t('lobby.startRule', { min: config.players.min, max: config.players.max });
-  if (kanban) startNote = t('lobby.kanbanSoon');
-  else if (seated < config.players.min) startNote = t('lobby.waitingForPlayers', { min: config.players.min });
+  if (seated < config.players.min) startNote = t('lobby.waitingForPlayers', { min: config.players.min });
   else if (!isHost) startNote = t('lobby.onlyHostStarts');
 
   return (
@@ -70,15 +72,19 @@ export function Lobby({ view, state, t }: LobbyProps) {
       </div>
       <div class="lg-lobby lg-lobby--game">
         <Panel title={t('lobby.roomTitle')} icon="info" class="lg-lobby__room">
-          <RoomCode
-            code={view.code}
-            label={t('lobby.share')}
-            copyLabel={t('lobby.copyCode')}
-            copied={state.copied}
-            copiedLabel={t('common.copied')}
-            onCopy={() => void copyCode(view.code)}
-          />
-          <p class="lg-muted">{t('lobby.shareSteps')}</p>
+          {state.mode === 'remote' ? (
+            <>
+              <RoomCode
+                code={view.code}
+                label={t('lobby.share')}
+                copyLabel={t('lobby.copyCode')}
+                copied={state.copied}
+                copiedLabel={t('common.copied')}
+                onCopy={() => void copyCode(view.code)}
+              />
+              <p class="lg-muted">{t('lobby.shareSteps')}</p>
+            </>
+          ) : null}
           <TextField id="lobby-team" label={t('lobby.teamName')} value={view.teamName} mono disabled hint={t('lobby.teamNameHint')} />
           {isHost ? (
             <div class="lg-cluster">
@@ -96,6 +102,22 @@ export function Lobby({ view, state, t }: LobbyProps) {
             rows={view.players.map((player) => ({
               player: avatarOf(player, view, t),
               status: !player.connected ? t('lobby.status.reconnecting') : player.isHost ? t('lobby.status.host') : t('lobby.status.ready'),
+              removal:
+                canRemove && player.id !== view.selfId
+                  ? {
+                      label: t('lobby.kickAria', { name: playerName(player, t) }),
+                      confirmText: t('lobby.kickConfirm', { name: playerName(player, t) }),
+                      confirmLabel: t('lobby.kickYes'),
+                      cancelLabel: t('common.cancel'),
+                      confirming: confirming === player.id,
+                      onAsk: () => setConfirming(player.id),
+                      onConfirm: () => {
+                        setConfirming(null);
+                        act({ type: 'lobby.kick', targetId: player.id });
+                      },
+                      onCancel: () => setConfirming(null),
+                    }
+                  : undefined,
             }))}
           />
           <Button variant="primary" size="lg" icon="play" block disabled={!canStart} onClick={() => act({ type: 'lobby.start' })}>
@@ -104,6 +126,18 @@ export function Lobby({ view, state, t }: LobbyProps) {
           <p class="lg-muted" role="status">
             {startNote}
           </p>
+          {canLock || canUnlock ? (
+            <div class="lg-cluster">
+              <Button variant="quiet" size="sm" icon="lock" onClick={() => act({ type: 'lobby.lock', locked: canLock })}>
+                {canLock ? t('lobby.lock') : t('lobby.unlock')}
+              </Button>
+            </div>
+          ) : null}
+          {view.locked ? (
+            <p class="lg-muted" role="status">
+              {t('lobby.lockedNote')}
+            </p>
+          ) : null}
         </Panel>
         <Panel class="lg-lobby__you">
           <TextField

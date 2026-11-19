@@ -25,7 +25,7 @@ export function PokerCard({ value, faceDown = false, chosen = false, revealing =
         <span class="lg-poker__corner lg-poker__corner--end">{value}</span>
       </span>
       <span class="lg-poker__face lg-poker__back" aria-hidden="true">
-        <span class="lg-poker__mark">LGTM</span>
+        <span class="lg-poker__mark">2P</span>
       </span>
     </span>
   );

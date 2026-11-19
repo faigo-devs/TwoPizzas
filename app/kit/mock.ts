@@ -26,16 +26,11 @@ export const statusLabels = {
   rejected: 'Escaped defect',
 } as const;
 
-export const themeOptions = { dark: 'Dark theme', light: 'Light theme' };
-
 export const footerIdentity = {
-  identity: { name: 'FAIGO SRL', seat: 'Oradea, Romania', cif: 'RO00000000', regCom: 'J00/000/2000' },
   labels: {
-    cif: 'CIF',
-    regCom: 'Reg. Com.',
     privacySummary: 'Privacy',
     privacy: [
-      'The game stores no account and sets no cookie. A room lives for a few hours and is deleted when the last player has left.',
+      'The game stores no account and sets no cookie. A room is deleted when the last player has been gone for fifteen minutes, or two hours after it was created.',
       'Only the published result is kept: framework, generated team name, number of players, score and date.',
     ],
     linksTitle: 'Primary sources',

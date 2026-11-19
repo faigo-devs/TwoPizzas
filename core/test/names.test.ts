@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Adjectives, Animals, generateTeamName } from '../names.ts';
-import { hashSeed } from '../rng.ts';
 
 test('both lists are long, unique, lower case ASCII words', () => {
   for (const list of [Adjectives, Animals]) {
@@ -13,7 +12,7 @@ test('both lists are long, unique, lower case ASCII words', () => {
 
 test('names are adjective-animal in kebab-case and deterministic', () => {
   for (let index = 0; index < 200; index += 1) {
-    const seed = hashSeed(`name:${index}`);
+    const seed = index * 7919 + 13;
     for (const attempt of [0, 1, 2]) {
       const name = generateTeamName(seed, attempt);
       assert.match(name, /^[a-z]+-[a-z]+$/);
@@ -28,6 +27,6 @@ test('names are adjective-animal in kebab-case and deterministic', () => {
 test('another attempt or seed gives variety', () => {
   const byAttempt = new Set(Array.from({ length: 20 }, (_, attempt) => generateTeamName(42, attempt)));
   assert.ok(byAttempt.size >= 15);
-  const bySeed = new Set(Array.from({ length: 50 }, (_, index) => generateTeamName(hashSeed(`s${index}`), 0)));
+  const bySeed = new Set(Array.from({ length: 50 }, (_, index) => generateTeamName(index * 104729 + 5, 0)));
   assert.ok(bySeed.size >= 40);
 });

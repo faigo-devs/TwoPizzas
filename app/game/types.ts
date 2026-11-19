@@ -1,8 +1,9 @@
 import type { ClientAction, ErrorCode, Framework, PlayerView } from '../../core/index.ts';
+import type { SceneId, TourSays } from './tour/script.ts';
 
-export type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed';
+export type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed' | 'elsewhere';
 
-export type TransportKind = 'remote' | 'local';
+export type TransportKind = 'remote' | 'local' | 'tour';
 
 export type FailureCode = ErrorCode | 'network';
 
@@ -24,6 +25,7 @@ export interface Transport {
   send(action: ClientAction): void;
   close(): void;
   skip?(): void;
+  show?(scene: SceneId): TourSays | null;
 }
 
 export interface TransportOptions {

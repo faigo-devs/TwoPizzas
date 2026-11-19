@@ -65,9 +65,12 @@ export function sweepOpenWaits(s: RoomState): void {
 export function agreementOutcome(s: RoomState): AgreementOutcome | null {
   const agreement = activeAgreement(s);
   if (agreement === null) return null;
-  if (agreement.type === 'free') return { agreement, kept: null };
-  if (agreement.type === 'wip_limits_set') return { agreement, kept: currentIteration(s).wipLimits.inProgress !== null };
-  return { agreement, kept: currentIteration(s).signals.agreementViolations === 0 };
+  if (agreement.type === 'free') return { agreement, kept: null, violations: null };
+  if (agreement.type === 'wip_limits_set') {
+    return { agreement, kept: currentIteration(s).wipLimits.inProgress !== null, violations: null };
+  }
+  const violations = currentIteration(s).signals.agreementViolations;
+  return { agreement, kept: violations === 0, violations };
 }
 
 /**

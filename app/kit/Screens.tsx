@@ -1,9 +1,13 @@
 import type { ComponentChildren } from 'preact';
+import { ActionBar } from '../ui/ActionBar.tsx';
 import { Button } from '../ui/Button.tsx';
+import { ConfirmAction } from '../ui/Confirm.tsx';
+import { createT } from '../i18n/index.ts';
 import { Callout, Stamp } from '../ui/Callout.tsx';
 import { BoardColumn } from '../ui/Board.tsx';
 import { Footer } from '../ui/Footer.tsx';
 import { Hero, Panel } from '../ui/Hero.tsx';
+import { TourInvite } from '../ui/TourInvite.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { Leaderboard } from '../ui/Leaderboard.tsx';
 import { PlayerList, RoomCode } from '../ui/Lobby.tsx';
@@ -27,7 +31,6 @@ import {
   players,
   roleLabels,
   statusLabels,
-  themeOptions,
 } from './mock.ts';
 
 const you = players[0]!;
@@ -37,12 +40,9 @@ function bar(scope: string, roomCode?: string, middle?: ComponentChildren) {
   return (
     <TopBar
       scope={scope}
-      home="LGTM"
+      home="Two Pizzas"
       language="en"
       languageLegend="Language"
-      theme="dark"
-      themeLegend="Theme"
-      themeOptions={themeOptions}
       roomCode={roomCode}
       roomLabel="Room"
       middle={middle}
@@ -69,30 +69,37 @@ export function StartScreen() {
     <div class="lg-screen">
       {bar('s1')}
       <div class="lg-page lg-main">
-        <Hero
-          scope="s1"
-          tagline="Learn Scrum or Kanban by doing the work: two short iterations with your team, each on your own device."
-          frameworkLegend="Framework"
-          frameworks={[
-            { value: 'scrum', label: 'Scrum' },
-            { value: 'kanban', label: 'Kanban' },
-          ]}
-          framework="scrum"
-          createLabel="Create a room"
-          joinTitle="Join a room"
-          codeLabel="Room code"
-          codeHint="Five letters, from the player who created the room."
-          code="BKNRT"
-          joinLabel="Join"
-          soloLabel="Take the solo tour"
-          soloHint="Two minutes, no team needed."
-          decorative={{
-            itemLabels,
-            subjects: ['payments-api', 'checkout-svc', 'search-index'],
-            statuses: [statusLabels.done, statusLabels.review, statusLabels.todo],
-            kinds: [kindLabels.review, kindLabels.incident, kindLabels.order],
-          }}
-        />
+        <div class="lg-start">
+          <Hero
+            scope="s1"
+            badge="Play with your team"
+            tagline="Learn Scrum or Kanban by doing the work: two short iterations with your team, each on your own device."
+            facts="3 to 6 players · 45 to 60 minutes"
+            note="3 to 6 players, each on their own device."
+            tourLink="Alone? Take the 10-minute guided tour"
+            frameworkLegend="Framework"
+            frameworks={[
+              { value: 'scrum', label: 'Scrum' },
+              { value: 'kanban', label: 'Kanban' },
+            ]}
+            framework="scrum"
+            createLabel="Create a room"
+            joinTitle="Join a room"
+            codeLabel="Room code"
+            codeHint="Five letters, from the player who created the room."
+            code="BKNRT"
+            joinLabel="Join"
+          />
+          <TourInvite
+            badge="Solo tour"
+            title="Not enough people yet? Take the guided tour"
+            text="Work on a real board with scripted teammates."
+            facts="About 10 minutes · alone · no account"
+            routeLabel="The stops of the tour"
+            stops={['The idea', 'The board', 'Take an item', 'Solve an item', 'Two people, one item', 'Review with LGTM']}
+            startLabel="Start the guided tour"
+          />
+        </div>
         <div class="lg-start-lower">
           <Leaderboard
             title="Scrum, this month"
@@ -490,6 +497,52 @@ export function RetroScreen() {
             <TextField id="s5-action" label="One action for the next Sprint" value="At most two items In Progress" maxLength={140} hint="A working agreement the game can track." />
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function FinishScreen({ lang }: { lang: 'en' | 'ro' }) {
+  const t = createT(lang);
+  const closed = (
+    <ConfirmAction
+      variant="secondary"
+      size="lg"
+      icon="play"
+      label={t('work.endEarly.kanban')}
+      prompt={t('work.endEarly.confirm.kanban.2')}
+      confirmLabel={t('work.endEarly.yes')}
+      cancelLabel={t('common.cancel')}
+      hint={t('work.endEarly.hint.kanban')}
+      onConfirm={() => {}}
+    />
+  );
+  const asking = (
+    <ConfirmAction
+      variant="secondary"
+      size="lg"
+      icon="play"
+      label={t('work.endEarly.kanban')}
+      prompt={t('work.endEarly.confirm.kanban.2')}
+      confirmLabel={t('work.endEarly.yes')}
+      cancelLabel={t('common.cancel')}
+      hint={t('work.endEarly.hint.kanban')}
+      initialAsking
+      onConfirm={() => {}}
+    />
+  );
+  return (
+    <div class="lg-screen">
+      <div class="lg-page lg-main">
+        <section class="lg-next" aria-labelledby={`finish-${lang}`}>
+          <h3 id={`finish-${lang}`} class="lg-next__title">
+            <Icon name="flag" size={18} />
+            <span>{t('work.next.title')}</span>
+          </h3>
+          <p class="lg-next__main">{t('work.next.waitArrivals', { count: 2, label: t('work.endEarly.kanban') })}</p>
+        </section>
+        <ActionBar>{closed}</ActionBar>
+        <ActionBar>{asking}</ActionBar>
       </div>
     </div>
   );

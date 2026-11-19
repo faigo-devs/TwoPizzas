@@ -1,0 +1,154 @@
+.lg-start {
+  display: grid;
+  gap: var(--lg-s-5);
+  padding-block: var(--lg-s-5);
+}
+
+.lg-zone {
+  display: grid;
+  gap: var(--lg-s-4);
+  align-content: start;
+  min-width: 0;
+  padding: var(--lg-s-6);
+  border-radius: var(--lg-r-lg);
+}
+
+.lg-zone--team {
+  background: var(--lg-surface);
+  border: 1px solid var(--lg-line);
+  border-top: 4px solid var(--lg-accent);
+}
+
+.lg-zone--tour {
+  background: var(--lg-tour-bg);
+  border: 2px solid var(--lg-tour);
+}
+
+.lg-zone__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--lg-s-2);
+  padding: var(--lg-s-1) var(--lg-s-3);
+  background: var(--lg-accent-soft);
+  border: 1px solid var(--lg-accent);
+  border-radius: var(--lg-r-pill);
+  color: var(--lg-accent-text);
+  font-family: var(--lg-font-mono);
+  font-size: var(--lg-t-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lg-zone__badge--tour {
+  background: var(--lg-tour-soft);
+  border-color: var(--lg-tour);
+  color: var(--lg-tour-text);
+}
+
+.lg-zone__title {
+  font-size: var(--lg-t-xl);
+  line-height: var(--lg-lh-tight);
+}
+
+.lg-zone__text {
+  max-width: 46ch;
+  color: var(--lg-text);
+}
+
+.lg-zone__facts {
+  font-family: var(--lg-font-mono);
+  font-size: var(--lg-t-sm);
+  color: var(--lg-text-2);
+}
+
+.lg-zone__facts--tour {
+  color: var(--lg-tour-text);
+  font-weight: 600;
+}
+
+.lg-zone__note {
+  font-size: var(--lg-t-sm);
+  color: var(--lg-text-2);
+}
+
+.lg-route {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--lg-rows, 7), auto);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lg-s-2) var(--lg-s-4);
+}
+
+.lg-route__stop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--lg-s-2);
+  min-width: 0;
+  min-height: 1.75rem;
+}
+
+.lg-route__stop::after {
+  content: '';
+  position: absolute;
+  left: 0.8rem;
+  top: 1.75rem;
+  height: calc(var(--lg-s-2) + 0.25rem);
+  border-left: 2px dashed var(--lg-tour);
+}
+
+.lg-route__stop.is-end::after {
+  display: none;
+}
+
+.lg-route__n {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  background: var(--lg-tour-soft);
+  border: 2px solid var(--lg-tour);
+  border-radius: 50%;
+  color: var(--lg-tour-text);
+  font-family: var(--lg-font-mono);
+  font-size: var(--lg-t-2xs);
+  font-weight: 600;
+}
+
+.lg-route__t {
+  font-size: var(--lg-t-sm);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.lg-btn--tour {
+  --lg-btn-bg: var(--lg-tour);
+  --lg-btn-fg: var(--lg-on-tour);
+  --lg-btn-bd: var(--lg-tour);
+  font-weight: 600;
+}
+
+.lg-btn--tour:hover:not(:disabled) {
+  --lg-btn-bg: var(--lg-tour-strong);
+  --lg-btn-bd: var(--lg-tour-strong);
+}
+
+@media (min-width: 64rem) {
+  .lg-start {
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 40rem) {
+  .lg-zone {
+    padding: var(--lg-s-4);
+  }
+
+  .lg-zone__title {
+    font-size: var(--lg-t-lg);
+  }
+}

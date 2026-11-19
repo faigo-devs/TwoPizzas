@@ -25,18 +25,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    if: vars.PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run check
+      - name: Upload the checked build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: page-dist
+          path: dist/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
   publish:
+    needs: build
     if: vars.PUBLISH_ENABLED == 'true'
     environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: 22
-
       - name: Require the publication secrets and variables
+        id: require
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
@@ -58,14 +80,17 @@ jobs:
             https://*) ;;
             *) echo "::error::SITE_URL must start with https://"; exit 1 ;;
           esac
+          case "$FTP_REMOTE_DIR" in
+            *$'\n'*|*$'\r'*) echo "::error::FTP_REMOTE_DIR must be a single line"; exit 1 ;;
+          esac
           dir="${FTP_REMOTE_DIR%/}/"
-          echo "REMOTE_DIR=$dir" >> "$GITHUB_ENV"
+          echo "remote_dir=$dir" >> "$GITHUB_OUTPUT"
 
-      - run: npm ci
-      - run: npm test
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm run check
+      - name: Download the checked build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: page-dist
+          path: dist/
 
       - name: Upload dist over FTPS
         uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65
@@ -75,7 +100,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           local-dir: ./dist/
-          server-dir: ${{ env.REMOTE_DIR }}
+          server-dir: ${{ steps.require.outputs.remote_dir }}
           dangerous-clean-slate: ${{ inputs.clean_slate == true }}
           exclude: |
             **/.git*

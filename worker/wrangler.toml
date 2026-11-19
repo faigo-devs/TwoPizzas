@@ -3,11 +3,19 @@ main = "src/index.ts"
 compatibility_date = "2026-04-07"
 workers_dev = false
 
+[observability]
+enabled = false
+
+[observability.logs]
+enabled = false
+invocation_logs = false
+
 [dev]
 port = 8787
 
 [vars]
-ALLOWED_ORIGINS = "http://localhost:4321,http://127.0.0.1:4321"
+ALLOWED_ORIGINS = ""
+DO_JURISDICTION = "eu"
 
 [[durable_objects.bindings]]
 name = "ROOM"
@@ -31,4 +39,12 @@ namespace_id = "1001"
 
 [ratelimits.simple]
 limit = 5
+period = 60
+
+[[ratelimits]]
+name = "SOCKET_LIMIT"
+namespace_id = "1002"
+
+[ratelimits.simple]
+limit = 120
 period = 60

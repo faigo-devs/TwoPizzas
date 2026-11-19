@@ -73,7 +73,7 @@ const swatchGroups: { title: string; tokens: string[] }[] = [
 ];
 
 const typeScale = [
-  ['hero', 'var(--lg-t-hero)', 'LGTM'],
+  ['hero', 'var(--lg-t-hero)', 'Two Pizzas'],
   ['2xl', 'var(--lg-t-2xl)', 'Review board'],
   ['xl', 'var(--lg-t-xl)', 'Sprint Planning'],
   ['lg', 'var(--lg-t-lg)', 'Work item #4 merge'],
@@ -105,7 +105,7 @@ export function Gallery() {
   const pl = (index: number) => players[index]!;
   return (
     <div class="lg-kit-gallery">
-      <Spec id="tokens" title="Tokens" note="Switch the theme in the bar above; every colour below is a custom property that changes with it.">
+      <Spec id="tokens" title="Tokens" note="Every colour below is a custom property.">
         {swatchGroups.map((group) => (
           <Cell key={group.title} label={group.title} wide>
             <ul class="lg-kit-swatches">
@@ -195,12 +195,11 @@ export function Gallery() {
             <IconButton icon="down" label="Move down" variant="secondary" disabled />
             <IconButton icon="x" label="Close" />
             <IconButton icon="copy" label="Copy" variant="primary" />
-            <IconButton icon="moon" label="Dark theme" pressed />
           </div>
         </Cell>
         <Cell label="icons">
           <div class="lg-cluster lg-kit-icons">
-            {(['check', 'x', 'plus', 'lock', 'clock', 'bug', 'users', 'eye', 'stop', 'info', 'warning', 'bulb', 'switch', 'flag', 'play', 'vote', 'diff', 'link', 'trophy', 'offline', 'external', 'sun'] as IconName[]).map((name) => (
+            {(['check', 'x', 'plus', 'lock', 'clock', 'bug', 'users', 'eye', 'stop', 'info', 'warning', 'bulb', 'switch', 'flag', 'play', 'vote', 'diff', 'link', 'trophy', 'offline', 'external'] as IconName[]).map((name) => (
               <span key={name} title={name}>
                 <Icon name={name} />
               </span>
@@ -220,7 +219,7 @@ export function Gallery() {
         <Cell label="textarea with counter">
           <TextField id="g-area" label="What went well?" value="Pairing worked." multiline rows={3} maxLength={140} />
         </Cell>
-        <Cell label="toggle: language, theme, framework">
+        <Cell label="toggle: language, framework">
           <div class="lg-cluster">
             <Segmented
               legend="Language"
@@ -230,16 +229,6 @@ export function Gallery() {
               options={[
                 { value: 'ro', label: 'RO' },
                 { value: 'en', label: 'EN' },
-              ]}
-            />
-            <Segmented
-              legend="Theme"
-              name="g-theme"
-              compact
-              value="dark"
-              options={[
-                { value: 'dark', label: 'Dark theme', icon: 'moon', hideLabel: true },
-                { value: 'light', label: 'Light theme', icon: 'sun', hideLabel: true },
               ]}
             />
             <Segmented
@@ -281,6 +270,7 @@ export function Gallery() {
             <Avatar {...pl(4)} showName />
             <Avatar name="Open seat" empty showName />
             <Avatar name="Player 6" number={6} colour={5} size="sm" />
+            <Avatar name="Player 5" number={5} colour={4} showName awayLabel="away until 21:45" />
           </div>
         </Cell>
       </Spec>
@@ -602,7 +592,7 @@ export function Gallery() {
       </Spec>
 
       <Spec id="footer" title="Footer">
-        <Cell label="firm identity, privacy in a disclosure, three outbound links" wide>
+        <Cell label="privacy in a disclosure, three outbound links" wide>
           <div class="lg-kit-footer">
             <Footer {...footerIdentity} />
           </div>

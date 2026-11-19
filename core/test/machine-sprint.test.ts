@@ -5,6 +5,7 @@ import { nextDeadline, viewFor } from '../machine/index.ts';
 import type { Agreement, RoomState, WorkItem } from '../types.ts';
 import {
   act,
+  scrumViewOf,
   answerOf,
   begin,
   facilitator,
@@ -175,10 +176,10 @@ test('feedback shifts the priority of one theme and adds three new items', () =>
   finishSprint(room);
   revealAll(room);
   const fac = facilitator(room);
-  assert.equal(viewFor(room.state, fac, room.now).inspect?.feedback, null);
+  assert.equal(scrumViewOf(room.state, fac, room.now).inspect?.feedback, null);
   const before = new Map(room.state.items.map((own) => [own.id, own.value]));
   act(room, fac, { type: 'phase.advance' });
-  const feedback = viewFor(room.state, fac, room.now).inspect?.feedback;
+  const feedback = scrumViewOf(room.state, fac, room.now).inspect?.feedback;
   assert.equal(feedback?.newItemIds.length, 3);
   assert.equal(feedback?.bonus, config.feedback.shiftBonus);
   for (const own of room.state.items) {

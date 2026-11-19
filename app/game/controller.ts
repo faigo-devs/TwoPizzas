@@ -1,12 +1,13 @@
+import { isErrorCode, isRoomCode } from '../../core/index.ts';
 import type { ClientAction, Framework, LeaderboardResponse, PlayerView } from '../../core/index.ts';
 import { createT, isLanguage, pickLanguage, type Lang, type Translate } from '../i18n/index.ts';
 import { createLocalTransport } from './local/transport.ts';
-import { clearSeat, readSeat, readStored, writeStored, type Seat } from './session.ts';
-import { store, type ThemeName } from './store.ts';
+import { stepsFor } from './tour/steps.ts';
+import { createTourTransport } from './tour/transport.ts';
+import { clearSeat, clearStaleTheme, readSeat, readStored, writeStored, type Seat } from './session.ts';
+import { store } from './store.ts';
 import { createRemoteTransport } from './transport/remote.ts';
 import type { ConnectionStatus, FailureCode, Transport, TransportHandlers } from './types.ts';
-
-const Codes: readonly string[] = ['room_not_found', 'room_full', 'already_started', 'not_allowed', 'bad_request', 'rate_limited'];
 
 let transport: Transport | null = null;
 let toastId = 0;
@@ -24,22 +25,14 @@ export function translator(lang: Lang): Translate {
 
 function applyLanguage(lang: Lang): void {
   document.documentElement.lang = lang;
+  const skip = document.querySelector('.lg-skip');
+  if (skip !== null) skip.textContent = translator(lang)('a11y.skip');
 }
 
 export function setLanguage(lang: Lang): void {
   writeStored('language', lang);
   applyLanguage(lang);
   store.set({ lang });
-}
-
-export function setTheme(theme: ThemeName): void {
-  document.documentElement.setAttribute('data-theme', theme);
-  writeStored('theme', theme);
-  store.set({ theme });
-}
-
-function currentTheme(): ThemeName {
-  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 }
 
 function handlers(): TransportHandlers {
@@ -74,7 +67,7 @@ function handlers(): TransportHandlers {
 function teardown(): void {
   if (transport !== null) transport.close();
   transport = null;
-  store.set({ mode: null, status: 'idle', view: null, clock: null, toast: null, connectionNote: null, scriptStep: 0, copied: false });
+  store.set({ mode: null, status: 'idle', view: null, clock: null, toast: null, connectionNote: null, scriptStep: 0, copied: false, tourStep: 0, tourSays: null, tourBaseline: null, learn: {}, said: null });
 }
 
 function connect(seat: Seat): void {
@@ -84,11 +77,14 @@ function connect(seat: Seat): void {
   transport.start();
 }
 
-function failureOf(raw: unknown): FailureCode {
+/**
+ * The error code a failed response body carries, or bad_request when it carries none.
+ */
+export function failureOf(raw: unknown): FailureCode {
   if (raw !== null && typeof raw === 'object') {
     const { code, error } = raw as Record<string, unknown>;
     for (const candidate of [code, error]) {
-      if (typeof candidate === 'string' && Codes.includes(candidate)) return candidate as FailureCode;
+      if (isErrorCode(candidate)) return candidate;
     }
   }
   return 'bad_request';
@@ -108,7 +104,7 @@ export async function createRoom(framework: Framework): Promise<void> {
       return;
     }
     const code = body !== null && typeof body === 'object' ? (body as Record<string, unknown>).code : undefined;
-    if (typeof code !== 'string' || !/^[A-Z]{5}$/.test(code)) {
+    if (!isRoomCode(code)) {
       store.set({ busy: null, startError: 'bad_request' });
       return;
     }
@@ -118,15 +114,32 @@ export async function createRoom(framework: Framework): Promise<void> {
   }
 }
 
-export function joinRoom(raw: string): void {
+/**
+ * A typed room code in its canonical form, or null when it has not the shape of a code.
+ */
+export function normalCode(raw: string): string | null {
   const code = raw.trim().toUpperCase();
-  if (!/^[A-Z]{5}$/.test(code)) {
+  return isRoomCode(code) ? code : null;
+}
+
+export function joinRoom(raw: string): void {
+  const code = normalCode(raw);
+  if (code === null) {
     store.set({ startError: 'codeShape' });
     return;
   }
   const kept = readSeat();
   store.set({ busy: 'join', startError: null });
   connect(kept !== null && kept.code === code ? kept : { code, playerId: null, token: null });
+}
+
+export function takeSeatHere(): void {
+  const seat = readSeat();
+  if (seat === null) {
+    leave();
+    return;
+  }
+  connect(seat);
 }
 
 export function startLocal(framework: Framework = 'scrum'): void {
@@ -139,14 +152,65 @@ export function startLocal(framework: Framework = 'scrum'): void {
   transport.start();
 }
 
+let tourFramework: Framework = 'scrum';
+
+export function startTour(framework: Framework = 'scrum'): void {
+  if (transport !== null) transport.close();
+  tourFramework = framework;
+  store.set({ mode: 'tour', status: 'connecting', view: null, clock: null, startError: null, toast: null, scriptStep: 0, busy: null, tourStep: 0, tourSays: null });
+  transport = createTourTransport(framework, handlers(), () => {
+    const t = translator(store.get().lang);
+    return (key) => t(key);
+  });
+  transport.start();
+  tourShow();
+}
+
+function tourShow(): void {
+  const step = stepsFor(tourFramework)[store.get().tourStep];
+  if (transport === null || transport.show === undefined || step === undefined) return;
+  const says = transport.show(step.scene);
+  const view = store.get().view;
+  store.set({ tourSays: says, tourBaseline: view === null ? null : step.baseline(view) });
+}
+
+export function tourGo(step: number): void {
+  store.set({ tourStep: Math.max(0, Math.min(stepsFor(tourFramework).length, step)), toast: null });
+  tourShow();
+}
+
+export function tourRefresh(): void {
+  tourShow();
+}
+
+export function tourFinish(): void {
+  leave();
+  store.set({ startFocus: true });
+}
+
 export function leave(): void {
   clearSeat();
   teardown();
   store.set({ startError: null, busy: null });
 }
 
+export function answerCheck(id: string, pick: number): void {
+  store.set({ learn: { ...store.get().learn, [id]: pick } });
+}
+
+let saidId = 0;
+
 export function act(action: ClientAction): void {
-  if (transport !== null) transport.send(action);
+  if (transport === null) return;
+  transport.send(action);
+  if (action.type === 'item.submit') {
+    saidId += 1;
+    const own = saidId;
+    store.set({ said: own });
+    setTimeout(() => {
+      if (store.get().said === own) store.set({ said: null });
+    }, 6000);
+  }
 }
 
 export function skipAhead(): void {
@@ -172,47 +236,59 @@ export async function copyCode(code: string): Promise<void> {
 }
 
 async function loadLeaderboard(): Promise<void> {
+  store.set({ leaderboardStatus: 'loading' });
   try {
     const response = await fetch('/api/room/leaderboard');
-    if (!response.ok) return;
+    if (!response.ok) {
+      store.set({ leaderboardStatus: 'error' });
+      return;
+    }
     const body = (await response.json()) as LeaderboardResponse;
     if (body !== null && typeof body === 'object' && body.month !== undefined && body.allTime !== undefined) {
-      store.set({ leaderboard: body });
+      store.set({ leaderboard: body, leaderboardStatus: 'ready' });
+      return;
     }
+    store.set({ leaderboardStatus: 'error' });
   } catch {
-    return;
+    store.set({ leaderboardStatus: 'error' });
   }
 }
 
+export type Entry = { kind: 'local'; framework: Framework } | { kind: 'resume'; seat: Seat } | { kind: 'start' };
+
 /**
- * Reads the stored language and theme, resumes a kept seat or starts the local mode asked for in the address, and loads the lists.
+ * How the page begins: the local mode the address asks for, the kept seat, or the start screen.
+ */
+export function entryFor(search: string, seat: Seat | null): Entry {
+  const params = new URLSearchParams(search);
+  if (params.get('local') === '1') return { kind: 'local', framework: params.get('framework') === 'kanban' ? 'kanban' : 'scrum' };
+  if (seat !== null) return { kind: 'resume', seat };
+  return { kind: 'start' };
+}
+
+let initialised = false;
+
+/**
+ * Reads the stored language, drops a stale theme entry, resumes a kept seat or starts the local mode asked for in the address, and loads the lists.
  */
 export function init(): void {
+  if (initialised) return;
+  initialised = true;
   const stored = readStored('language');
   const lang: Lang = isLanguage(stored) ? stored : pickLanguage(navigator.languages ?? [navigator.language]);
+  clearStaleTheme();
   applyLanguage(lang);
-  store.set({ lang, theme: currentTheme() });
+  store.set({ lang });
   window.addEventListener('storage', (event) => {
-    if (event.key === 'lg-theme' && (event.newValue === 'dark' || event.newValue === 'light')) {
-      document.documentElement.setAttribute('data-theme', event.newValue);
-      store.set({ theme: event.newValue });
-    }
     if (event.key === 'lg-lang' && isLanguage(event.newValue)) {
       applyLanguage(event.newValue);
       store.set({ lang: event.newValue });
     }
   });
-  const params = new URLSearchParams(location.search);
-  if (params.get('local') === '1') {
-    startLocal(params.get('framework') === 'kanban' ? 'kanban' : 'scrum');
-    return;
-  }
-  const seat = readSeat();
-  if (seat !== null) {
-    connect(seat);
-    return;
-  }
-  void loadLeaderboard();
+  const entry = entryFor(location.search, readSeat());
+  if (entry.kind === 'local') startLocal(entry.framework);
+  else if (entry.kind === 'resume') connect(entry.seat);
+  else void loadLeaderboard();
 }
 
 export function refreshLeaderboard(): void {

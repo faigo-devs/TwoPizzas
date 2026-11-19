@@ -1,4 +1,5 @@
 import { config } from '../../../core/index.ts';
+import { profileOf } from '../framework.ts';
 import type {
   Agreement,
   Card,
@@ -35,12 +36,19 @@ const NoteKeys: Record<RetroColumn, readonly Key[]> = {
 };
 
 const NoteColumns: readonly RetroColumn[] = ['went_well', 'slowed_us', 'try'];
-const RightRate = 0.88;
-const CatchRate = 0.75;
+const RightRate = 0.75;
+const CatchRate = 0.55;
 const WipLimit = 3;
 const PullCount = 4;
+const ReplenishCount = 3;
+const FreeWip = 5;
+const BotLimits = { inProgress: 3, review: 2 };
 const EstimatesBeforeStop = 5;
 const DailyMinimumMs = 25_000;
+const ReviewGraceMs = 16_000;
+const PairGraceMs = 9_000;
+const HumanLeadMs = 60_000;
+const FirstPickMs = 10_000;
 
 export function delayFor(pace: Pace): number {
   const [low, high] = Delays[pace];
@@ -133,6 +141,23 @@ function decidePlan(state: RoomState, id: PlayerId, fac: boolean, step: string):
     if (poker.revotesUsed < config.poker.revotesAllowed && spread >= 4 && roll(`${poker.itemId}:revote`) < 0.5) return { action: { type: 'plan.poker_revote' }, pace: 'host' };
     return { action: { type: 'plan.poker_record', estimate: null }, pace: 'host' };
   }
+  if (step === 'replenish') {
+    if (!fac) return null;
+    const ready = state.items.filter((own) => own.status === 'todo');
+    const pool = state.items.filter((own) => own.status === 'backlog');
+    if (ready.length >= ReplenishCount || pool.length === 0) {
+      return ready.length > 0 ? { action: { type: 'phase.advance' }, pace: 'begin' } : null;
+    }
+    const next = pool[0];
+    return next === undefined ? null : { action: { type: 'plan.pull', itemId: next.id }, pace: 'host' };
+  }
+  if (step === 'limits') {
+    if (!fac) return null;
+    if (it.wipLimits.inProgress === null && it.wipLimits.review === null) {
+      return { action: { type: 'plan.set_limits', inProgress: BotLimits.inProgress, review: BotLimits.review }, pace: 'host' };
+    }
+    return { action: { type: 'phase.advance' }, pace: 'begin' };
+  }
   if (step === 'commit') {
     if (!fac) return null;
     const pulled = state.items.filter((own) => own.status === 'todo');
@@ -146,6 +171,17 @@ function decidePlan(state: RoomState, id: PlayerId, fac: boolean, step: string):
   return null;
 }
 
+function reviewFull(state: RoomState): boolean {
+  if (!profileOf(state.framework).limits) return false;
+  const limit = lastIteration(state).wipLimits.review;
+  return limit !== null && state.items.filter((own) => own.status === 'review').length >= limit;
+}
+
+function startCap(state: RoomState): number {
+  if (!profileOf(state.framework).limits) return WipLimit;
+  return lastIteration(state).wipLimits.inProgress ?? FreeWip;
+}
+
 function decideWork(state: RoomState, id: PlayerId, now: number): Decision | null {
   const player = state.players.find((own) => own.id === id);
   if (player === undefined) return null;
@@ -155,26 +191,46 @@ function decideWork(state: RoomState, id: PlayerId, now: number): Decision | nul
     if (target === undefined) return { action: { type: 'item.close' }, pace: 'quick' };
     if (now < open.readyAt) return null;
     if (open.mode === 'review' && target.status === 'review' && target.reviewer === id) {
-      const verdict = isRight(target) || roll(`${target.id}:${id}:catch`) > CatchRate ? 'lgtm' : 'changes';
+      const verdict = isRight(target) || roll(`${target.seed}:${id}:catch`) > CatchRate ? 'lgtm' : 'changes';
       return { action: { type: 'item.verdict', itemId: target.id, verdict }, pace: 'think' };
     }
     if (open.mode === 'work' && target.status === 'doing' && target.puzzle !== null && target.workers.includes(id)) {
-      const response = roll(`${target.id}:answer`) < RightRate || target.changesRequested > 0 ? rightResponse(target.puzzle) : wrongResponse(target.puzzle);
+      if (reviewFull(state)) return { action: { type: 'item.close' }, pace: 'think' };
+      const humanOn = state.hostId !== null && state.hostId !== id && target.workers.includes(state.hostId);
+      if (humanOn && now - (target.times.startedAt ?? now) < HumanLeadMs) return null;
+      const response = roll(`${target.seed}:answer`) < RightRate || target.changesRequested > 0 ? rightResponse(target.puzzle) : wrongResponse(target.puzzle);
       return { action: { type: 'item.submit', itemId: target.id, response }, pace: 'think' };
     }
     return { action: { type: 'item.close' }, pace: 'quick' };
   }
-  const reviewable = state.items.find((own) => own.status === 'review' && own.reviewer === null && !own.workers.includes(id));
+  const human = state.hostId;
+  const reviewable = state.items.find(
+    (own) =>
+      own.status === 'review' &&
+      own.reviewer === null &&
+      !own.workers.includes(id) &&
+      (human === null || own.workers.includes(human) || now - (own.times.submittedAt ?? now) >= ReviewGraceMs),
+  );
   if (reviewable !== undefined) return { action: { type: 'item.take_review', itemId: reviewable.id }, pace: 'quick' };
   const claimed = state.items.find((own) => own.status === 'review' && own.reviewer === id);
   if (claimed !== undefined) return { action: { type: 'item.open', itemId: claimed.id, mode: 'review' }, pace: 'quick' };
   const mine = state.items.find((own) => own.status === 'doing' && own.workers.includes(id) && own.puzzle !== null);
+  if (mine !== undefined && reviewFull(state)) return null;
   if (mine !== undefined) return { action: { type: 'item.open', itemId: mine.id, mode: 'work' }, pace: 'quick' };
-  const waiting = state.items.find((own) => own.status === 'doing' && own.workers.length < own.workersNeeded && !own.workers.includes(id));
+  const waiting = state.items.find(
+    (own) =>
+      own.status === 'doing' &&
+      own.workers.length < own.workersNeeded &&
+      !own.workers.includes(id) &&
+      now - (own.waitingSince ?? now) >= PairGraceMs,
+  );
   if (waiting !== undefined) return { action: { type: 'item.take', itemId: waiting.id }, pace: 'quick' };
   const doing = state.items.filter((own) => own.status === 'doing').length;
-  const todo = state.items.find((own) => own.status === 'todo');
-  if (todo !== undefined && doing < WipLimit) return { action: { type: 'item.take', itemId: todo.id }, pace: 'quick' };
+  const todos = state.items.filter((own) => own.status === 'todo');
+  const todo = todos[0];
+  const phase = state.phase;
+  const since = phase.kind === 'work' ? now - (phase.timebox.startedAt ?? now) : FirstPickMs;
+  if (todo !== undefined && todos.length > 1 && doing < startCap(state) && since >= FirstPickMs) return { action: { type: 'item.take', itemId: todo.id }, pace: 'quick' };
   return null;
 }
 

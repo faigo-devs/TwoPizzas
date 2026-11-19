@@ -4,13 +4,16 @@ A free browser game in which a team of 3–6 beginners learns Scrum or Kanban by
 cooperative work, with Sprint Planning, the Daily Scrum, the Sprint Review and the Sprint Retrospective around them (or
 their Kanban counterparts). Romanian and English.
 
-Not published yet. The rules are in `docs/spec.md`; the state of the work and the owner's decisions are in
+A guided tour of about ten minutes lets someone alone try it first. The game will live at twopizzas.faigo.ro; it is
+not published yet. The rules are in `docs/spec.md`; the state of the work and the owner's decisions are in
 `docs/handover.md`; working rules are in `CLAUDE.md`.
 
 ```bash
-npm install
-npm run dev
-npm test
+npm install                       # and once in worker/
+npm run dev                       # the page; the room server runs with `npm run dev` in worker/
+npm test                          # engine and copy tests (cd worker && npm test for the room server)
+npm run build && npm run check    # the static page and its output check
+node scripts/e2e/run.mjs scrum    # a whole game on three pages in real browsers (also: kanban, tour)
 ```
 
 ## Licence and sources

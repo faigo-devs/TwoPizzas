@@ -89,46 +89,57 @@ export interface DotPlotProps {
 
 const PLOT_LEFT = 74;
 const PLOT_W = 270;
-const ROW_H = 64;
 
 /**
  * Dot plot of cycle times, one dot per finished item, one row per iteration, with a median mark on each row.
  */
 export function DotPlot({ title, rows, max, unit, medianLabel, summary }: DotPlotProps) {
-  const height = rows.length * ROW_H + 40;
   const x = (value: number) => PLOT_LEFT + (Math.min(value, max) / max) * PLOT_W;
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * max));
+  const layout = rows.map((row) => {
+    const placed: { cx: number; level: number }[] = [];
+    [...row.values]
+      .sort((a, b) => a - b)
+      .forEach((value) => {
+        const cx = x(value);
+        let level = 0;
+        while (placed.some((p) => p.level === level && Math.abs(p.cx - cx) < 12)) level += 1;
+        placed.push({ cx, level });
+      });
+    const levels = placed.reduce((most, dot) => Math.max(most, dot.level), 0);
+    return { row, placed, levels };
+  });
+  let cursor = 14;
+  const bases = layout.map((own) => {
+    const base = cursor + own.levels * 12 + 24;
+    cursor = base + 22;
+    return base;
+  });
+  const plotBottom = cursor - 8;
+  const height = plotBottom + 30;
   return (
-    <figure class="lg-chart">
+    <figure class="lg-chart lg-chart--wide">
       <figcaption class="lg-chart__title">{title}</figcaption>
       <svg class="lg-chart__svg" viewBox={`0 0 360 ${height}`} role="img" aria-label={`${title}. ${summary}`}>
         {ticks.map((tick) => (
           <g key={tick}>
-            <line x1={x(tick)} x2={x(tick)} y1="4" y2={rows.length * ROW_H + 6} class="lg-chart__grid" />
-            <text x={x(tick)} y={rows.length * ROW_H + 24} text-anchor="middle" class="lg-chart__tick">
+            <line x1={x(tick)} x2={x(tick)} y1="4" y2={plotBottom} class="lg-chart__grid" />
+            <text x={x(tick)} y={plotBottom + 18} text-anchor="middle" class="lg-chart__tick">
               {tick}
               {tick === max ? ` ${unit}` : ''}
             </text>
           </g>
         ))}
-        {rows.map((row, index) => {
-          const base = index * ROW_H + 50;
-          const sorted = [...row.values].sort((a, b) => a - b);
-          const placed: { cx: number; level: number }[] = [];
-          sorted.forEach((value) => {
-            const cx = x(value);
-            let level = 0;
-            while (placed.some((p) => p.level === level && Math.abs(p.cx - cx) < 12)) level += 1;
-            placed.push({ cx, level });
-          });
+        {layout.map((own, index) => {
+          const base = bases[index] as number;
           const first = index === 0;
           return (
-            <g key={row.label}>
+            <g key={own.row.label}>
               <text x="4" y={base - 3} class="lg-chart__label">
-                {row.label}
+                {own.row.label}
               </text>
               <line x1={PLOT_LEFT} x2={PLOT_LEFT + PLOT_W} y1={base + 2} y2={base + 2} class="lg-chart__axis" />
-              {placed.map((dot, dotIndex) => (
+              {own.placed.map((dot, dotIndex) => (
                 <circle
                   key={dotIndex}
                   cx={dot.cx}
@@ -137,8 +148,8 @@ export function DotPlot({ title, rows, max, unit, medianLabel, summary }: DotPlo
                   class={first ? 'lg-chart__dot lg-chart__dot--first' : 'lg-chart__dot lg-chart__dot--second'}
                 />
               ))}
-              <path d={`M${x(row.median)} ${base - 2} l-5 9 h10 z`} class="lg-chart__median" />
-              <title>{`${medianLabel} ${row.median} ${unit}`}</title>
+              <path d={`M${x(own.row.median)} ${base - 2} l-5 9 h10 z`} class="lg-chart__median" />
+              <title>{`${medianLabel} ${own.row.median} ${unit}`}</title>
             </g>
           );
         })}

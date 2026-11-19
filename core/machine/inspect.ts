@@ -56,7 +56,7 @@ function returnItems(s: RoomState): void {
 
 function applyFeedback(s: RoomState): void {
   const state = currentIteration(s);
-  const rng = createRng(s.rng);
+  const rng = createRng(s.secret, 'machine', s.rng);
   const theme: Theme = rng.pick(config.backlog.themes);
   s.rng = rng.state();
   for (const item of s.items) {

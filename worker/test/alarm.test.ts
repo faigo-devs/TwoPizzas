@@ -11,21 +11,23 @@ test('an empty new room wakes at the end of the grace', async () => {
   assert.equal(h.storage.alarm, state.createdAt + config.room.emptyGraceMs);
 });
 
-test('a room with players in the lobby wakes at its lifetime', async () => {
+test('a room with players in the lobby wakes when the first socket would fall silent', async () => {
   const h = new Harness();
   await h.create();
   await h.join();
   const state = h.state();
-  assert.equal(h.storage.alarm, state.createdAt + config.room.lifetimeMs);
+  assert.equal(h.storage.alarm, h.clock + config.room.silenceMs);
+  assert.ok((h.storage.alarm ?? 0) < state.createdAt + config.room.lifetimeMs);
 });
 
 test('during the Sprint the alarm sits at the next deadline of the machine', async () => {
   const h = new Harness();
-  await toSprint(h);
+  const players = await toSprint(h);
   const state = h.state();
   const deadline = machine.nextDeadline(state);
   assert.notEqual(deadline, null);
-  assert.equal(h.storage.alarm, deadline);
+  const silent = Math.min(...players.map((own) => (own.attachment?.heardAt ?? 0) + config.room.silenceMs));
+  assert.equal(h.storage.alarm, Math.min(deadline ?? 0, silent));
   assert.ok((h.storage.alarm ?? 0) < state.createdAt + config.room.lifetimeMs);
 });
 
@@ -33,7 +35,7 @@ test('the alarm at the hard end moves the game on and tells everyone', async () 
   const h = new Harness();
   const players = await toSprint(h);
   for (const player of players) player.clear();
-  await h.fireAlarm();
+  for (let guard = 0; guard < 20 && h.state().phase.kind === 'work'; guard += 1) await h.fireAlarmAlive();
   assert.equal(h.state().phase.kind, 'daily');
   for (const player of players) assert.equal(player.views().at(-1)?.phase.kind, 'daily');
 });
@@ -57,7 +59,7 @@ test('the alarm is re-set after every change', async () => {
   const before = h.storage.alarm;
   await h.drop(first);
   const after = h.storage.alarm;
-  assert.equal(before, h.state().createdAt + config.room.lifetimeMs);
+  assert.equal(before, h.clock + config.room.silenceMs);
   assert.equal(after, machine.nextDeadline(h.state()));
   assert.equal(after, h.state().now + config.room.reconnectGraceMs);
 });
@@ -92,7 +94,7 @@ test('a player who comes back within the grace keeps the room alive', async () =
   const again = await h.connect();
   await h.send(again, { t: 'hello', playerId, token });
   assert.equal(h.state().emptySince, null);
-  assert.equal(h.storage.alarm, h.state().createdAt + config.room.lifetimeMs);
+  assert.equal(h.storage.alarm, h.clock + config.room.silenceMs);
   h.advance(config.room.emptyGraceMs);
   await h.handler.alarm();
   assert.notEqual(h.storage.state(), undefined);
@@ -104,7 +106,7 @@ test('the room is deleted at its lifetime even with players connected, and the s
   const first = await h.join();
   const second = await h.join();
   const created = h.state().createdAt;
-  await h.fireAlarm();
+  for (let guard = 0; guard < 200 && h.storage.state() !== undefined; guard += 1) await h.fireAlarmAlive();
   assert.equal(h.clock, created + config.room.lifetimeMs);
   assert.equal(h.storage.state(), undefined);
   assert.equal(first.closed?.code, 1001);

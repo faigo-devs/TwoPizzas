@@ -9,6 +9,7 @@ export interface BoardColumnProps {
   count: number;
   tone?: ItemStatus;
   wip?: number;
+  enforced?: boolean;
   wipLabel?: string;
   exceededLabel?: string;
   emptyLabel?: string;
@@ -18,8 +19,8 @@ export interface BoardColumnProps {
 /**
  * Board column with a title, an item count, an optional WIP limit and its exceeded state.
  */
-export function BoardColumn({ id, title, count, tone = 'todo', wip, wipLabel, exceededLabel, emptyLabel, children }: BoardColumnProps) {
-  const exceeded = wip !== undefined && count > wip;
+export function BoardColumn({ id, title, count, tone = 'todo', wip, enforced = false, wipLabel, exceededLabel, emptyLabel, children }: BoardColumnProps) {
+  const exceeded = wip !== undefined && (enforced ? count >= wip : count > wip);
   return (
     <section class={cx('lg-col', `lg-col--${tone}`, exceeded && 'is-exceeded')} aria-labelledby={`${id}-title`}>
       <header class="lg-col__head">

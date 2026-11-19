@@ -6,8 +6,8 @@ import { Components } from './data.ts';
 /**
  * Builds an order puzzle: "X starts after Y" clues that allow exactly one start order, the dependency holding one chain link.
  */
-export function generateOrder(size: ItemSize, seed: number, workers: WorkerCount, dependency: boolean): OrderPuzzle {
-  const rng = createRng(seed);
+export function generateOrder(size: ItemSize, seed: string, workers: WorkerCount, dependency: boolean): OrderPuzzle {
+  const rng = createRng(seed, 'puzzle');
   const table = config.puzzle.sizes.order[size];
   const count = table.components;
   const order = rng.shuffle(Components).slice(0, count);

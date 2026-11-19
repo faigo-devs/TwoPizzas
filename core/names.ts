@@ -1,4 +1,4 @@
-import { mixSeed, createRng } from './rng.ts';
+import { createRng } from './rng.ts';
 
 export const Adjectives: readonly string[] = [
   'brave', 'calm', 'clever', 'cosy', 'eager', 'gentle', 'happy', 'jolly', 'kind', 'lively',
@@ -17,9 +17,9 @@ export const Animals: readonly string[] = [
 ];
 
 /**
- * A friendly team name, adjective and animal in kebab-case; the same seed and attempt always give the same name.
+ * A friendly team name, adjective and animal in kebab-case; the same name seed and attempt always give the same name.
  */
-export function generateTeamName(seed: number, attempt: number): string {
-  const rng = createRng(mixSeed(seed, `name:${attempt}`));
+export function generateTeamName(nameSeed: number, attempt: number): string {
+  const rng = createRng(String(nameSeed), `name:${attempt}`);
   return `${rng.pick(Adjectives)}-${rng.pick(Animals)}`;
 }

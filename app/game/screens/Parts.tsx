@@ -5,6 +5,8 @@ import { Callout } from '../../ui/Callout.tsx';
 import { ScriptPanel } from '../../ui/Phase.tsx';
 import { setScriptStep } from '../controller.ts';
 import { facilitatorRole, key } from '../format.ts';
+import { store } from '../store.ts';
+import { profileOf } from '../framework.ts';
 
 export interface PartProps {
   view: PlayerView;
@@ -21,8 +23,8 @@ export function Observations({ view, t }: PartProps) {
   const event = first === undefined ? null : first.id.split('.')[0];
   const mistakeKey = event === null ? null : `phase.${view.framework}.${event}.mistake`;
   return (
-    <section class="lg-obs" aria-label={t('observation.title')}>
-      <h3 class="lg-section-title">{t('observation.title')}</h3>
+    <details class="lg-obs lg-obs--fold">
+      <summary>{t('observation.titleFor', { event: t(key(`phase.${view.framework}.${event}.name`)) })}</summary>
       <div class="lg-obs__list">
         {list.map((observation) => (
           <Callout
@@ -37,11 +39,14 @@ export function Observations({ view, t }: PartProps) {
       </div>
       {mistakeKey !== null && mistakeKey in dictionaries.en ? (
         <p class="lg-obs__mistake">
-          <strong>{t('observation.typicalMistake')}.</strong> {t(key(mistakeKey))}
+          <strong>{t('observation.typicalMistakeFor', { event: t(key(`phase.${view.framework}.${event}.name`)) })}.</strong> {t(key(mistakeKey))}
         </p>
       ) : null}
+      {profileOf(view.framework).wipNote && list.some((observation) => observation.id === 'work.wipLow' || observation.id === 'work.wipHigh') ? (
+        <p class="lg-muted lg-obs__note">{t('agreement.wip_limit.scrumNote')}</p>
+      ) : null}
       <p class="lg-muted lg-obs__note">{t('observation.note')}</p>
-    </section>
+    </details>
   );
 }
 
@@ -54,7 +59,7 @@ export interface ScriptBoxProps extends PartProps {
  */
 export function ScriptBox({ view, t, current }: ScriptBoxProps) {
   const script = view.script;
-  if (script === null) return null;
+  if (script === null || store.get().mode === 'tour') return null;
   const prefix = `script.${view.framework}.${script.event}.${script.step}.`;
   const lines: string[] = [];
   for (let n = 1; `${prefix}${n}` in dictionaries.en; n += 1) lines.push(t(key(`${prefix}${n}`)));
@@ -67,6 +72,7 @@ export function ScriptBox({ view, t, current }: ScriptBoxProps) {
       current={current}
       stepLabel={t('script.step')}
       doneLabel={t('script.done')}
+      allLabel={t('script.allSteps')}
       footer={
         <Button variant="secondary" size="sm" icon="check" disabled={current >= lines.length} onClick={() => setScriptStep(current + 1)}>
           {t('script.markDone')}

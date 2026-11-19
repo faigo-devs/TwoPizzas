@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseClientMessage } from '../wire.ts';
+import { CloseCodes, ErrorCodes, isErrorCode } from '../errors.ts';
+import type { ClientAction } from '../types.ts';
+import { Samples } from './action-samples.ts';
+import { clientActionTypes, isRoomCode, parseClientMessage } from '../wire.ts';
 
 const doing = (action: unknown): string => JSON.stringify({ t: 'do', action });
 
@@ -154,4 +157,40 @@ test('malformed values are refused', () => {
     { type: 'retro.help_use', proposalId: '' },
   ];
   for (const action of bad) assert.equal(parseClientMessage(doing(action)), null, JSON.stringify(action));
+});
+
+test('every client action type has a sample, and the sample parses to itself', () => {
+  assert.deepEqual([...clientActionTypes].sort(), Object.keys(Samples).sort());
+  for (const type of clientActionTypes) {
+    const sample: ClientAction = Samples[type];
+    assert.equal(sample.type, type);
+    assert.deepEqual(parseClientMessage(doing(sample)), { t: 'do', action: sample }, type);
+  }
+});
+
+test('every client action type refuses an extra key, a missing key and a wrong type name', () => {
+  for (const type of clientActionTypes) {
+    const sample = Samples[type];
+    assert.equal(parseClientMessage(doing({ ...sample, extra: 1 })), null, `${type} with an extra key`);
+    assert.equal(parseClientMessage(doing({ ...sample, playerId: 'p1' })), null, `${type} with a stamp`);
+    for (const key of Object.keys(sample).filter((own) => own !== 'type')) {
+      const { [key]: _removed, ...rest } = sample as Record<string, unknown>;
+      assert.equal(parseClientMessage(doing(rest)), null, `${type} without ${key}`);
+    }
+    assert.equal(parseClientMessage(doing({ ...sample, type: `${type}x` })), null);
+  }
+});
+
+test('the error codes and room codes the wire shares are checked from one list', () => {
+  for (const code of ErrorCodes) assert.equal(isErrorCode(code), true);
+  assert.equal(isErrorCode('nope'), false);
+  assert.equal(isErrorCode(undefined), false);
+  assert.equal(isErrorCode('toString'), false);
+  assert.equal(isRoomCode('BCDFG'), true);
+  assert.equal(isRoomCode('bcdfg'), false);
+  assert.equal(isRoomCode('ABCDE'), false);
+  assert.equal(isRoomCode('BCDF'), false);
+  assert.equal(isRoomCode('BCDFGH'), false);
+  assert.equal(isRoomCode(5), false);
+  assert.deepEqual(Object.values(CloseCodes), [...new Set(Object.values(CloseCodes))]);
 });

@@ -14,11 +14,11 @@ import { Actions, Indicators } from './data.ts';
  */
 export function generateIncident(
   size: ItemSize,
-  seed: number,
+  seed: string,
   workers: WorkerCount,
   dependency: boolean,
 ): IncidentPuzzle {
-  const rng = createRng(seed);
+  const rng = createRng(seed, 'puzzle');
   const table = config.puzzle.sizes.incident[size];
   const indicators = rng.shuffle(Indicators).slice(0, table.indicators);
   const levels = indicators.map(() => rng.int(2));

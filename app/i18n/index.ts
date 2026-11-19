@@ -1,5 +1,6 @@
 import { config } from '../../core/config.ts';
 import { en } from './en.ts';
+import { identity } from './identity.ts';
 import type { Key } from './en.ts';
 import { ro } from './ro.ts';
 
@@ -153,10 +154,14 @@ function compiled(template: string): Node[] {
   return nodes;
 }
 
+const NonBreakingHyphen = String.fromCharCode(0x2011);
+
+const JoinedHyphen =/(?<=\p{L})-(?=\p{L})/gu;
+
 function render(lang: Lang, nodes: Node[], params: Params, hash: number | null): string {
   let out = '';
   for (const node of nodes) {
-    if (node.t === 'text') out += node.v;
+    if (node.t === 'text') out += lang === 'ro' ? node.v.replace(JoinedHyphen, NonBreakingHyphen) : node.v;
     else if (node.t === 'hash') out += String(hash ?? '#');
     else if (node.t === 'param') out += node.name in params ? String(params[node.name]) : `{${node.name}}`;
     else {
@@ -220,7 +225,7 @@ export function isLanguage(value: unknown): value is Lang {
 /**
  * The privacy paragraphs in reading order.
  */
-export const privacyKeys = ['privacy.p1', 'privacy.p2', 'privacy.p3', 'privacy.p4', 'privacy.p5', 'privacy.p6'] as const satisfies readonly Key[];
+export const privacyKeys = ['privacy.p0', 'privacy.p1', 'privacy.p2', 'privacy.p3', 'privacy.p4', 'privacy.p5', 'privacy.p6', 'privacy.p7', 'privacy.p8'] as const satisfies readonly Key[];
 
 /**
  * The numbers the privacy text quotes, taken from the game's configuration.
@@ -228,8 +233,9 @@ export const privacyKeys = ['privacy.p1', 'privacy.p2', 'privacy.p3', 'privacy.p
 export const privacyParams: Params = {
   minutes: config.room.emptyGraceMs / 60_000,
   hours: config.room.lifetimeMs / 3_600_000,
+  top: config.leaderboard.top,
+  ...identity,
 };
 
-export { identity } from './identity.ts';
 export { sources } from './sources.ts';
 export type { Source } from './sources.ts';

@@ -1,9 +1,16 @@
 ---
 import Base from '../layouts/Base.astro';
+import { App } from '../game/App.tsx';
+import { createT } from '../i18n/index.ts';
+
+const en = createT('en');
+const ro = createT('ro');
 ---
 
-<Base title="LGTM" description="A free browser game that teaches Scrum and Kanban.">
-  <main id="main" class="lg-page lg-main">
-    <h1 class="lg-hero__name" tabindex="-1"><span class="lg-hero__lg">LG</span><span class="lg-hero__tm">TM</span></h1>
-  </main>
+<Base title="Two Pizzas" lang="ro" description={ro('start.tagline')} skipLabel={ro('a11y.skip')}>
+  <App client:only="preact" />
+  <noscript>
+    <p class="lg-page lg-main">{ro('shell.noscript')}</p>
+    <p class="lg-page lg-main">{en('shell.noscript')}</p>
+  </noscript>
 </Base>

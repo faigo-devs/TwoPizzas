@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/csp-hashes.mjs",
     "preview": "astro preview",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"core/test/*.test.ts\" \"app/i18n/test/*.test.ts\"",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"core/test/*.test.ts\" \"app/i18n/test/*.test.ts\" \"app/game/test/*.test.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "check": "node scripts/check-dist.mjs"
+    "check": "node scripts/check-dist.mjs",
+    "test:all": "npm test && npm --prefix worker test && node --test scripts/check-dist.test.mjs"
   },
   "dependencies": {
     "@astrojs/preact": "^6.1.0",

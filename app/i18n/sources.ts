@@ -35,6 +35,6 @@ export const sources: readonly Source[] = [
       en: 'https://agilemanifesto.org/',
       ro: 'https://agilemanifesto.org/iso/ro/manifesto.html',
     },
-    title: { en: 'The Agile Manifesto', ro: 'Manifestul Agile' },
+    title: { en: 'The Agile Manifesto', ro: 'Manifestul pentru dezvoltarea agilă de software' },
   },
 ];

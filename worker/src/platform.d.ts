@@ -1,6 +1,6 @@
 interface DurableObjectStorageLike {
   get<T>(key: string): Promise<T | undefined>;
-  put(key: string, value: unknown): Promise<void>;
+  put(entries: Record<string, unknown>): Promise<void>;
   deleteAll(): Promise<void>;
   getAlarm(): Promise<number | null>;
   setAlarm(time: number): Promise<void>;
@@ -12,6 +12,7 @@ interface DurableObjectStorageLike {
 }
 
 interface HibernatableWebSocket {
+  readonly readyState: number;
   send(message: string): void;
   close(code?: number, reason?: string): void;
   serializeAttachment(value: unknown): void;
@@ -22,6 +23,8 @@ interface DurableObjectStateLike {
   storage: DurableObjectStorageLike;
   acceptWebSocket(socket: HibernatableWebSocket): void;
   getWebSockets(): HibernatableWebSocket[];
+  setWebSocketAutoResponse(pair?: WebSocketRequestResponsePair): void;
+  getWebSocketAutoResponseTimestamp(socket: HibernatableWebSocket): Date | null;
 }
 
 interface DurableObjectStubLike {
@@ -39,6 +42,7 @@ interface LeaderboardStubLike {
 
 interface DurableObjectNamespaceLike<Stub> {
   getByName(name: string): Stub;
+  jurisdiction(name: 'eu'): DurableObjectNamespaceLike<Stub>;
 }
 
 declare module 'cloudflare:workers' {
@@ -48,6 +52,17 @@ declare module 'cloudflare:workers' {
     constructor(ctx: DurableObjectStateLike, env: Env);
   }
 }
+
+declare class WebSocketRequestResponsePair {
+  constructor(request: string, response: string);
+}
+
+interface EdgeCache {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+}
+
+declare const caches: { default: EdgeCache };
 
 declare class WebSocketPair {
   0: HibernatableWebSocket & WebSocket;

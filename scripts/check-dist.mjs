@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { collectHashes, directiveSources, readPolicy } from './csp-hashes.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -57,11 +58,6 @@ function siteHosts(site) {
   const host = new URL(site).hostname;
   const bare = host.startsWith('www.') ? host.slice(4) : host;
   return bare === host ? [host] : [host, bare];
-}
-
-function directive(csp, name) {
-  const part = csp.split(';').map((item) => item.trim()).find((item) => item === name || item.startsWith(`${name} `));
-  return part === undefined ? null : part.split(/\s+/).slice(1);
 }
 
 /**
@@ -132,29 +128,46 @@ export function checkDist(dir, facts = readProjectFacts()) {
   for (const [url, count] of allowedNotes) notes.push(`allowed namespace identifier ${url} (${count}x): XML namespace string, never fetched`);
 
   const policies = [];
-  for (const [rel, pattern] of [
-    ['web.config', /name="Content-Security-Policy"\s+value="([^"]*)"/],
-    ['.htaccess', /Content-Security-Policy\s+"([^"]*)"/],
-  ]) {
+  const hashes = collectHashes(base);
+  for (const problem of hashes.problems) {
+    const [page, ...rest] = problem.split(': ');
+    fail(page, rest.join(': ') + ': a hash cannot cover it');
+  }
+  for (const rel of ['web.config', '.htaccess']) {
     const file = files.find((item) => item.rel === rel);
     if (file === undefined) continue;
     const text = readFileSync(file.full, 'utf8');
     if (/Strict-Transport-Security/i.test(text)) fail(rel, 'contains Strict-Transport-Security');
     if (!text.includes(SyncStateFile)) fail(rel, `does not protect ${SyncStateFile}`);
-    const found = pattern.exec(text);
-    if (found === null) {
+    const csp = readPolicy(rel, text);
+    if (csp === null) {
       fail(rel, 'no Content-Security-Policy');
       continue;
     }
-    const csp = found[1];
     policies.push(csp);
-    const connect = directive(csp, 'connect-src');
+    const connect = directiveSources(csp, 'connect-src');
     const expected = ["'self'", ...hosts.map((host) => `wss://${host}`)];
     if (connect === null) fail(rel, 'CSP has no connect-src');
     else if (connect.length !== expected.length || !expected.every((item) => connect.includes(item))) {
       fail(rel, `connect-src is "${connect.join(' ')}", expected "${expected.join(' ')}"`);
     }
     if (/'unsafe-eval'/.test(csp)) fail(rel, "CSP allows 'unsafe-eval'");
+    for (const name of ['script-src-attr', 'style-src-attr']) {
+      const sources = directiveSources(csp, name);
+      if (sources === null || sources.length !== 1 || sources[0] !== "'none'") fail(rel, name + " must be 'none'");
+    }
+    if (/'unsafe-inline'/.test(csp)) fail(rel, "CSP allows 'unsafe-inline'");
+    for (const [name, wanted] of [['script-src', hashes.scripts], ['style-src', hashes.styles]]) {
+      const sources = directiveSources(csp, name);
+      if (sources === null) {
+        fail(rel, `CSP has no ${name}`);
+        continue;
+      }
+      const listed = sources.filter((item) => item.startsWith("'sha256-"));
+      for (const hash of wanted) if (!listed.includes(hash)) fail(rel, `${name} lacks the hash ${hash} of an inline block`);
+      for (const hash of listed) if (!wanted.includes(hash)) fail(rel, `${name} lists the hash ${hash} that no inline block has`);
+      if (!sources.includes("'self'")) fail(rel, `${name} lacks 'self'`);
+    }
     for (const url of csp.match(UrlPattern) ?? []) {
       if (!url.startsWith('wss://') || !hosts.includes(new URL(url).hostname)) fail(rel, `CSP names ${url}`);
     }

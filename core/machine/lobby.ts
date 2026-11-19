@@ -1,6 +1,7 @@
 import { config } from '../config.ts';
 import { generateTeamName } from '../names.ts';
 import type { Player, RoomState, ServerAction, StampedClientAction } from '../types.ts';
+import { summaryNewTeamName } from './summary.ts';
 import { startIteration } from './transitions.ts';
 import { rulesFor } from './rules.ts';
 import { connectedPlayers, sanitize, type Refusal } from './util.ts';
@@ -22,6 +23,7 @@ function cleanName(name: string | null): string | null {
 export function join(s: RoomState, action: Extract<ServerAction, { type: 'server.join' }>): Refusal {
   if (s.phase.kind !== 'lobby') return 'already_started';
   if (s.players.some((player) => player.id === action.playerId)) return 'bad_request';
+  if (s.locked) return 'room_locked';
   if (s.players.length >= config.players.max) return 'room_full';
   const seat = s.players.reduce((max, player) => Math.max(max, player.seat), 0) + 1;
   s.players.push({
@@ -30,6 +32,7 @@ export function join(s: RoomState, action: Extract<ServerAction, { type: 'server
     name: cleanName(action.name),
     connected: true,
     disconnectedAt: null,
+    pausedUntil: null,
     volunteer: false,
     open: null,
   });
@@ -55,6 +58,7 @@ export function dropFromLobby(s: RoomState, player: Player): void {
  * Handles the lobby actions of a player.
  */
 export function lobbyAction(s: RoomState, action: StampedClientAction, p: Player): Refusal {
+  if (s.phase.kind === 'summary' && action.type === 'lobby.new_team_name') return summaryNewTeamName(s, p);
   if (s.phase.kind !== 'lobby') return action.type === 'lobby.start' ? 'already_started' : 'not_allowed';
   switch (action.type) {
     case 'lobby.set_name': {
@@ -69,7 +73,20 @@ export function lobbyAction(s: RoomState, action: StampedClientAction, p: Player
     case 'lobby.new_team_name': {
       if (p.id !== s.hostId || s.nameAttempt + 1 >= config.names.attemptsMax) return 'not_allowed';
       s.nameAttempt += 1;
-      s.teamName = generateTeamName(s.seed, s.nameAttempt);
+      s.teamName = generateTeamName(s.nameSeed, s.nameAttempt);
+      return null;
+    }
+    case 'lobby.lock': {
+      if (p.id !== s.hostId) return 'not_allowed';
+      s.locked = action.locked;
+      return null;
+    }
+    case 'lobby.kick': {
+      if (p.id !== s.hostId || action.targetId === p.id) return 'not_allowed';
+      const target = s.players.find((player) => player.id === action.targetId);
+      if (target === undefined) return 'not_allowed';
+      s.players = s.players.filter((player) => player.id !== target.id);
+      lobbyFacilitator(s);
       return null;
     }
     case 'lobby.start': {

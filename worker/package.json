@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dev": "wrangler dev --port 8787",
+    "dev": "wrangler dev --port 8787 --var ALLOWED_ORIGINS:http://localhost:4321,http://127.0.0.1:4321",
     "check": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
     "smoke": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/smoke.ts"
   },

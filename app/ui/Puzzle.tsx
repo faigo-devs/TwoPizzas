@@ -11,6 +11,8 @@ export interface ItemWorkspaceProps {
   kindLabel: string;
   status: ItemStatus;
   statusLabel: string;
+  theme?: string;
+  goalTheme?: boolean;
   closeLabel: string;
   roleNote?: string;
   children?: ComponentChildren;
@@ -21,7 +23,7 @@ export interface ItemWorkspaceProps {
 /**
  * Frame of the item workspace: item header, the puzzle body and a footer for the submit or verdict controls.
  */
-export function ItemWorkspace({ id, subject, kindLabel, status, statusLabel, closeLabel, roleNote, children, footer, onClose }: ItemWorkspaceProps) {
+export function ItemWorkspace({ id, subject, kindLabel, status, statusLabel, theme, goalTheme, closeLabel, roleNote, children, footer, onClose }: ItemWorkspaceProps) {
   return (
     <section class="lg-ws" aria-labelledby="lg-ws-title">
       <header class="lg-ws__head">
@@ -33,6 +35,7 @@ export function ItemWorkspace({ id, subject, kindLabel, status, statusLabel, clo
         </div>
         <StatusMarker status={status} label={statusLabel} />
         <span class="lg-ws__kind">{kindLabel}</span>
+        {theme ? <span class={cx('lg-item__theme', goalTheme && 'is-goal')}>{theme}</span> : null}
         <IconButton icon="x" label={closeLabel} onClick={onClose} />
       </header>
       {roleNote ? <p class="lg-ws__role">{roleNote}</p> : null}
@@ -158,13 +161,15 @@ export interface ReadingsProps {
   actions: string[];
   chosen?: string;
   name: string;
+  actionLabel?: (value: string) => string;
+  readOnly?: boolean;
   onChoose?: (value: string) => void;
 }
 
 /**
  * Incident panel: the readings, the numbered rules, and one choice of action out of the list.
  */
-export function ReadingsRules({ title, readings, rulesTitle, rules, actionLegend, actions, chosen, name, onChoose }: ReadingsProps) {
+export function ReadingsRules({ title, readings, rulesTitle, rules, actionLegend, actions, chosen, name, actionLabel, readOnly, onChoose }: ReadingsProps) {
   return (
     <div class="lg-rules">
       <div class="lg-rules__col">
@@ -185,12 +190,20 @@ export function ReadingsRules({ title, readings, rulesTitle, rules, actionLegend
             <li key={rule.n}>
               <span class="lg-rules__n">{rule.n}</span>
               <code>{rule.when}</code>
+              {rule.hint ? <span class="lg-rules__then">{rule.hint}</span> : null}
             </li>
           ))}
         </ol>
       </div>
       <div class="lg-rules__act">
-        <ChipChoice legend={actionLegend} name={name} options={actions.map((a) => ({ value: a, label: a }))} value={chosen} onChange={onChoose} />
+        <ChipChoice
+          legend={actionLegend}
+          name={name}
+          options={actions.map((a) => ({ value: a, label: actionLabel ? actionLabel(a) : a }))}
+          value={chosen}
+          disabled={readOnly}
+          onChange={onChoose}
+        />
       </div>
     </div>
   );
@@ -209,13 +222,17 @@ export interface MergeTableProps {
   columns: { line: string; base: string; ours: string; theirs: string; result: string };
   rows: MergeRow[];
   resultLabel: (n: number) => string;
+  hidden?: 'ours' | 'theirs';
+  hiddenLabel?: string;
+  sameLabel?: string;
+  readOnly?: boolean;
   onInput?: (n: number, value: string) => void;
 }
 
 /**
  * Merge table: the base file, each side's change and one value field per line.
  */
-export function MergeTable({ caption, columns, rows, resultLabel, onInput }: MergeTableProps) {
+export function MergeTable({ caption, columns, rows, resultLabel, hidden, hiddenLabel, sameLabel, readOnly, onInput }: MergeTableProps) {
   return (
     <div class="lg-merge">
       <table class="lg-merge__table">
@@ -239,10 +256,10 @@ export function MergeTable({ caption, columns, rows, resultLabel, onInput }: Mer
                 <code>{row.base}</code>
               </td>
               <td data-label={columns.ours} class={cx(row.ours && 'is-changed')}>
-                {row.ours ? <code>{row.ours}</code> : <span class="lg-merge__same">·</span>}
+                {hidden === 'ours' ? <span class="lg-merge__hidden">{hiddenLabel ?? '?'}</span> : row.ours ? <code>{row.ours}</code> : <span class="lg-merge__same" role="img" aria-label={sameLabel ?? 'unchanged'}>·</span>}
               </td>
               <td data-label={columns.theirs} class={cx(row.theirs && 'is-changed')}>
-                {row.theirs ? <code>{row.theirs}</code> : <span class="lg-merge__same">·</span>}
+                {hidden === 'theirs' ? <span class="lg-merge__hidden">{hiddenLabel ?? '?'}</span> : row.theirs ? <code>{row.theirs}</code> : <span class="lg-merge__same" role="img" aria-label={sameLabel ?? 'unchanged'}>·</span>}
               </td>
               <td data-label={columns.result}>
                 <input
@@ -251,6 +268,8 @@ export function MergeTable({ caption, columns, rows, resultLabel, onInput }: Mer
                   value={row.value}
                   aria-label={resultLabel(row.n)}
                   autocomplete="off"
+                  inputMode="numeric"
+                  readOnly={readOnly}
                   onInput={(event) => onInput?.(row.n, (event.currentTarget as HTMLInputElement).value)}
                 />
               </td>
@@ -281,7 +300,9 @@ export function SwitchingContext({ label, detail, remaining, fraction }: Switchi
       <div class="lg-switching__bar" aria-hidden="true">
         <span style={{ width: `${Math.max(0, Math.min(1, fraction)) * 100}%` }} />
       </div>
-      <p class="lg-switching__time">{remaining}</p>
+      <p class="lg-switching__time" aria-hidden="true">
+        {remaining}
+      </p>
     </div>
   );
 }

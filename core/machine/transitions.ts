@@ -1,9 +1,9 @@
 import { config } from '../config.ts';
-import { createRng } from '../rng.ts';
-import type { EventRecord, IterationNumber, IterationState, PlayerId, RoomState, Theme } from '../types.ts';
+import type { EventRecord, IterationNumber, IterationState, PlayerId, RoomState } from '../types.ts';
 import { sweepOpenWaits } from './agreements.ts';
-import { flowIterationStart, flowResume } from './flow.ts';
+import { flowResume } from './flow.ts';
 import { observe } from './observations.ts';
+import { rulesFor } from './rules.ts';
 import { at, box, currentIteration, emptySignals, nextConnectedAfter, startBox } from './util.ts';
 
 function isHard(end: string): boolean {
@@ -33,16 +33,6 @@ function newIteration(iteration: IterationNumber, facilitatorId: PlayerId | null
   };
 }
 
-function chooseGoalOptions(s: RoomState): Theme[] {
-  const open = config.backlog.themes.filter((theme) =>
-    s.items.some((item) => item.theme === theme && !(item.status === 'done' && item.outcome === 'accepted')),
-  );
-  const rng = createRng(s.rng);
-  const options = rng.shuffle(open).slice(0, config.goal.options);
-  s.rng = rng.state();
-  return options;
-}
-
 /**
  * Opens an iteration on the card of its planning; iteration 2 passes the facilitator role on first.
  */
@@ -52,13 +42,8 @@ export function startIteration(s: RoomState, iteration: IterationNumber): void {
     if (next !== undefined) s.facilitatorId = next.id;
   }
   const state = newIteration(iteration, s.facilitatorId);
-  if (iteration === 2 && s.framework === 'scrum') {
-    const first = s.iterations[0];
-    state.signals.previousVelocity = first?.metrics?.velocity ?? null;
-  }
   s.iterations.push(state);
-  if (s.framework === 'kanban') flowIterationStart(s, iteration);
-  else state.goalOptions = chooseGoalOptions(s);
+  rulesFor(s).onIterationStart(s, state, iteration);
   s.phase = {
     kind: 'plan',
     iteration,
@@ -150,13 +135,13 @@ export function enterSummary(s: RoomState): void {
 /**
  * The Sprint's hard end: the first half leads to the Daily Scrum, the second to the Sprint Review.
  */
-export function endWorkHalf(s: RoomState): void {
+export function endWorkHalf(s: RoomState, early = false): void {
   if (s.phase.kind !== 'work') return;
   if (s.phase.half === 1) {
     enterDaily(s);
     return;
   }
-  currentIteration(s).flowEndedAt = s.phase.timebox.deadline ?? s.now;
+  currentIteration(s).flowEndedAt = early ? s.now : (s.phase.timebox.deadline ?? s.now);
   sweepOpenWaits(s);
   observe(s, 'work');
   enterInspect(s);

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { config } from '../config.ts';
 import { latestObservations, observe } from '../machine/observations.ts';
-import { leaderboardEntry, nextDeadline, viewFor } from '../machine/index.ts';
+import { leaderboardEntry, nextDeadline } from '../machine/index.ts';
 import type { Agreement, ItemSize, PlayerId, RoomState, WipLimits, WorkItem } from '../types.ts';
 import {
   act,
@@ -13,6 +13,7 @@ import {
   finishSprint,
   item,
   kanbanStyle,
+  kanbanViewOf,
   playGame,
   playInspect,
   playIteration,
@@ -115,14 +116,14 @@ test('Replenishment in round 1: the team pulls from the pool up to the Ready max
   assert.equal(room.state.phase.kind, 'plan');
   assert.equal(stepOf(room), 'card');
   const fac = facilitator(room);
-  assert.deepEqual(viewFor(room.state, fac, room.now).script, { event: 'plan', step: 'card', index: 1, total: 2 });
-  assert.equal(viewFor(room.state, 'p2', room.now).script, null);
+  assert.deepEqual(kanbanViewOf(room.state, fac, room.now).script, { event: 'plan', step: 'card', index: 1, total: 2 });
+  assert.equal(kanbanViewOf(room.state, 'p2', room.now).script, null);
   begin(room);
   assert.equal(stepOf(room), 'replenish');
   const backlog = pool(room);
   assert.equal(backlog.length, 8);
   assert.deepEqual(sizeCounts(backlog), config.kanban.poolComposition);
-  const view = viewFor(room.state, 'p2', room.now);
+  const view = kanbanViewOf(room.state, 'p2', room.now);
   assert.deepEqual(view.planning?.replenish, {
     readyMax: config.kanban.readyMax,
     ready: 0,
@@ -131,9 +132,9 @@ test('Replenishment in round 1: the team pulls from the pool up to the Ready max
     limitMax: config.kanban.wipLimitMax,
     settingLimits: false,
   });
-  assert.deepEqual(view.planning?.goalOptions, []);
-  assert.equal(view.planning?.goal, null);
-  assert.deepEqual(viewFor(room.state, fac, room.now).controls, []);
+  assert.ok(view.planning !== null);
+  assert.ok(!('goalOptions' in view.planning) && !('goal' in view.planning) && !('poker' in view.planning));
+  assert.deepEqual(kanbanViewOf(room.state, fac, room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), []);
   assert.equal(code(tryAct(room, fac, { type: 'phase.advance' })), 'not_allowed');
   assert.equal(code(tryAct(room, 'p2', { type: 'plan.goal_vote', theme: 'payments' })), 'not_allowed');
   assert.equal(code(tryAct(room, 'p2', { type: 'plan.poker_vote', card: 3 })), 'not_allowed');
@@ -146,12 +147,12 @@ test('Replenishment in round 1: the team pulls from the pool up to the Ready max
   act(room, 'p3', { type: 'plan.unpull', itemId: ids[0] ?? '' });
   assert.equal(code(tryAct(room, 'p3', { type: 'plan.unpull', itemId: ids[0] ?? '' })), 'not_allowed');
   act(room, 'p3', { type: 'plan.pull', itemId: ids[config.kanban.readyMax] ?? '' });
-  assert.deepEqual(viewFor(room.state, fac, room.now).controls, ['advance']);
+  assert.deepEqual(kanbanViewOf(room.state, fac, room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['advance']);
   assert.equal(code(tryAct(room, 'p2', { type: 'phase.advance' })), 'not_allowed');
   act(room, fac, { type: 'phase.advance' });
   assert.equal(room.state.phase.kind, 'work');
   assert.equal(stepOf(room), 'card');
-  const after = viewFor(room.state, 'p2', room.now);
+  const after = kanbanViewOf(room.state, 'p2', room.now);
   assert.deepEqual(after.limits, NoLimits);
   assert.equal(after.kanban?.ready, config.kanban.readyMax);
   assert.ok(after.observations.some((own) => own.id === 'plan.onTime'));
@@ -164,13 +165,13 @@ test('Replenishment in round 2: the facilitator records limits in their own step
   assert.equal(room.state.iterations.length, 2);
   begin(room);
   for (const own of pool(room).slice(0, 2)) act(room, 'p1', { type: 'plan.pull', itemId: own.id });
-  assert.deepEqual(viewFor(room.state, fac, room.now).script, { event: 'plan', step: 'replenish', index: 2, total: 3 });
+  assert.deepEqual(kanbanViewOf(room.state, fac, room.now).script, { event: 'plan', step: 'replenish', index: 2, total: 3 });
   assert.equal(code(tryAct(room, fac, { type: 'plan.set_limits', inProgress: 2, review: 2 })), 'not_allowed');
   act(room, fac, { type: 'phase.advance' });
   assert.equal(stepOf(room), 'limits');
-  assert.deepEqual(viewFor(room.state, fac, room.now).script, { event: 'plan', step: 'limits', index: 3, total: 3 });
-  assert.deepEqual(viewFor(room.state, fac, room.now).controls, ['set_limits', 'advance']);
-  assert.equal(viewFor(room.state, 'p2', room.now).planning?.replenish?.settingLimits, true);
+  assert.deepEqual(kanbanViewOf(room.state, fac, room.now).script, { event: 'plan', step: 'limits', index: 3, total: 3 });
+  assert.deepEqual(kanbanViewOf(room.state, fac, room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['set_limits', 'advance']);
+  assert.equal(kanbanViewOf(room.state, 'p2', room.now).planning?.replenish?.settingLimits, true);
   const other = fac === 'p3' ? 'p4' : 'p3';
   assert.equal(code(tryAct(room, other, { type: 'plan.set_limits', inProgress: 2, review: 2 })), 'not_allowed');
   const { wipLimitMin, wipLimitMax } = config.kanban;
@@ -183,12 +184,12 @@ test('Replenishment in round 2: the facilitator records limits in their own step
   assert.equal(code(tryAct(room, 'p1', { type: 'plan.pull', itemId: spare.id })), 'not_allowed');
   act(room, fac, { type: 'plan.set_limits', inProgress: 2, review: null });
   assert.deepEqual(room.state.iterations[1]?.wipLimits, { inProgress: 2, review: null });
-  assert.deepEqual(viewFor(room.state, 'p3', room.now).limits, { inProgress: 2, review: null });
+  assert.deepEqual(kanbanViewOf(room.state, 'p3', room.now).limits, { inProgress: 2, review: null });
   act(room, fac, { type: 'plan.set_limits', inProgress: 2, review: 3 });
   act(room, fac, { type: 'phase.advance' });
   assert.equal(room.state.phase.kind, 'work');
   begin(room);
-  assert.deepEqual(viewFor(room.state, 'p3', room.now).kanban?.limits, { inProgress: 2, review: 3 });
+  assert.deepEqual(kanbanViewOf(room.state, 'p3', room.now).kanban?.limits, { inProgress: 2, review: 3 });
 });
 
 test('requests arrive on the arrival interval, eight per round, in Ready, stamped with their time', () => {
@@ -196,7 +197,7 @@ test('requests arrive on the arrival interval, eight per round, in Ready, stampe
   const start = flowStart(room);
   const interval = config.kanban.arrivalIntervalMs;
   assert.equal(nextDeadline(room.state), start + interval);
-  assert.equal(viewFor(room.state, 'p2', room.now).kanban?.nextArrivalAt, start + interval);
+  assert.equal(kanbanViewOf(room.state, 'p2', room.now).kanban?.nextArrivalAt, start + interval);
   advanceTo(room, start + interval - 1);
   assert.equal(arrivals(room).length, 0);
   advanceTo(room, start + interval);
@@ -205,7 +206,7 @@ test('requests arrive on the arrival interval, eight per round, in Ready, stampe
   assert.equal(first.status, 'todo');
   assert.equal(first.times.arrivedAt, start + interval);
   assert.equal(first.times.readyAt, start + interval);
-  const seen = viewFor(room.state, 'p2', room.now);
+  const seen = kanbanViewOf(room.state, 'p2', room.now);
   assert.equal(seen.items.find((own) => own.id === first.id)?.arrivedAt, start + interval);
   assert.equal(seen.kanban?.arrivalsLeft, 7);
   assert.equal(seen.kanban?.arrivalsTotal, 8);
@@ -216,7 +217,7 @@ test('requests arrive on the arrival interval, eight per round, in Ready, stampe
   advanceTo(room, start + config.timeboxMs.workHalf);
   assert.equal(room.state.phase.kind, 'daily');
   assert.equal(arrivals(room).length, 5);
-  assert.equal(viewFor(room.state, 'p2', room.now).kanban?.nextArrivalAt, null);
+  assert.equal(kanbanViewOf(room.state, 'p2', room.now).kanban?.nextArrivalAt, null);
   assert.equal(nextDeadline(room.state), null);
   begin(room);
   wait(room, 70_000);
@@ -231,7 +232,7 @@ test('requests arrive on the arrival interval, eight per round, in Ready, stampe
   advanceTo(room, resumed + 30_000 + 2 * interval);
   assert.equal(arrivals(room).length, 8);
   assert.equal(room.state.iterations[0]?.nextArrivalAt, null);
-  assert.equal(viewFor(room.state, 'p2', room.now).kanban?.nextArrivalAt, null);
+  assert.equal(kanbanViewOf(room.state, 'p2', room.now).kanban?.nextArrivalAt, null);
   assert.equal(nextDeadline(room.state), resumed + config.timeboxMs.workHalf);
   advanceTo(room, resumed + config.timeboxMs.workHalf);
   assert.equal(room.state.phase.kind, 'inspect');
@@ -263,7 +264,7 @@ test('round 1 has no limits: starting and submitting are never refused for a lim
   const todo = room.state.items.filter((own) => own.status === 'todo').map((own) => own.id);
   assert.equal(todo.length, 3);
   ['p1', 'p2', 'p3'].forEach((id, index) => act(room, id, { type: 'item.take', itemId: todo[index] ?? '' }));
-  const view = viewFor(room.state, 'p4', room.now);
+  const view = kanbanViewOf(room.state, 'p4', room.now);
   assert.deepEqual(view.kanban?.limits, NoLimits);
   assert.equal(view.kanban?.inProgress, 3);
   assert.equal(view.kanban?.startBlockedByLimit, false);
@@ -274,23 +275,23 @@ test('round 2 enforces both limits; a refusal changes nothing and the view expla
   const room = secondRound({ seed: 1234505, pick: solos(3), limits: { inProgress: 1, review: 1 }, checks: true });
   const [s1, s2, s3] = room.state.items.filter((own) => own.status === 'todo').map((own) => own.id);
   assert.ok(s1 !== undefined && s2 !== undefined && s3 !== undefined);
-  assert.deepEqual(viewFor(room.state, 'p2', room.now).kanban?.limits, { inProgress: 1, review: 1 });
-  assert.equal(viewFor(room.state, 'p2', room.now).kanban?.startBlockedByLimit, false);
+  assert.deepEqual(kanbanViewOf(room.state, 'p2', room.now).kanban?.limits, { inProgress: 1, review: 1 });
+  assert.equal(kanbanViewOf(room.state, 'p2', room.now).kanban?.startBlockedByLimit, false);
   act(room, 'p1', { type: 'item.take', itemId: s1 });
-  const blocked = viewFor(room.state, 'p2', room.now).kanban;
+  const blocked = kanbanViewOf(room.state, 'p2', room.now).kanban;
   assert.equal(blocked?.inProgress, 1);
   assert.equal(blocked?.startBlockedByLimit, true);
   assert.equal(code(tryAct(room, 'p2', { type: 'item.take', itemId: s2 })), 'not_allowed');
   assert.equal(item(room, s2).status, 'todo');
   work(room, 'p1', s1);
-  const full = viewFor(room.state, 'p2', room.now).kanban;
+  const full = kanbanViewOf(room.state, 'p2', room.now).kanban;
   assert.equal(full?.review, 1);
   assert.equal(full?.submitBlockedByLimit, true);
   assert.equal(full?.startBlockedByLimit, false);
   act(room, 'p2', { type: 'item.take', itemId: s2 });
   act(room, 'p2', { type: 'item.open', itemId: s2, mode: 'work' });
   wait(room, SwitchMs + 500);
-  const workspace = viewFor(room.state, 'p2', room.now).workspace;
+  const workspace = kanbanViewOf(room.state, 'p2', room.now).workspace;
   assert.equal(workspace?.canSubmit, false);
   assert.equal(workspace?.submitBlockedByLimit, true);
   const puzzle = item(room, s2).puzzle;
@@ -298,7 +299,7 @@ test('round 2 enforces both limits; a refusal changes nothing and the view expla
   assert.equal(code(tryAct(room, 'p2', { type: 'item.submit', itemId: s2, response: answerOf(puzzle) })), 'not_allowed');
   assert.equal(item(room, s2).status, 'doing');
   verdict(room, 'p3', s1, 'lgtm');
-  const open = viewFor(room.state, 'p2', room.now).workspace;
+  const open = kanbanViewOf(room.state, 'p2', room.now).workspace;
   assert.equal(open?.canSubmit, true);
   assert.equal(open?.submitBlockedByLimit, false);
   act(room, 'p2', { type: 'item.submit', itemId: s2, response: answerOf(puzzle) });
@@ -316,8 +317,8 @@ test('a null limit leaves its column open and a pair joining a waiting item is n
   act(room, 'p1', { type: 'item.take', itemId: first.id });
   assert.equal(code(tryAct(room, 'p3', { type: 'item.take', itemId: second.id })), 'not_allowed');
   act(room, 'p2', { type: 'item.take', itemId: first.id });
-  assert.equal(viewFor(room.state, 'p3', room.now).kanban?.limits.review, null);
-  assert.equal(viewFor(room.state, 'p3', room.now).kanban?.submitBlockedByLimit, false);
+  assert.equal(kanbanViewOf(room.state, 'p3', room.now).kanban?.limits.review, null);
+  assert.equal(kanbanViewOf(room.state, 'p3', room.now).kanban?.submitBlockedByLimit, false);
 });
 
 test('round 2 starts from an empty board with a comparable pool; round 1 leftovers stay in round 1 numbers', () => {
@@ -349,7 +350,7 @@ test('round 2 starts from an empty board with a comparable pool; round 1 leftove
   assert.ok(items.every((own) => !oldIds.has(own.id) && !oldSeeds.has(own.seed)));
   assert.deepEqual(sizeCounts(items), firstSizes);
   assert.deepEqual(room.state.iterations[1]?.wipLimits, NoLimits);
-  const view = viewFor(room.state, facilitator(room), room.now);
+  const view = kanbanViewOf(room.state, facilitator(room), room.now);
   assert.deepEqual(
     [view.kanban?.ready, view.kanban?.inProgress, view.kanban?.review, view.kanban?.done],
     [0, 0, 0, 0],
@@ -422,7 +423,7 @@ test('flow metrics on a hand-built round: cycle time without the daily, throughp
   assert.equal(metrics.openAges[0]?.itemId, c.id);
   assert.equal(metrics.openAges[0]?.ageMs, 2 * config.timeboxMs.workHalf);
   assert.deepEqual(metrics.wipLimits, NoLimits);
-  const view = viewFor(room.state, 'p2', room.now);
+  const view = kanbanViewOf(room.state, 'p2', room.now);
   assert.equal(view.inspect?.flow?.throughput, 3);
   assert.equal(stepOf(room), 'flow');
   assert.equal(view.inspect?.comparison, null);
@@ -456,7 +457,7 @@ test('the comparison appears only in round 2 and sets the two rounds side by sid
   playWork(room, kanbanStyle);
   begin(room);
   const fac = facilitator(room);
-  assert.deepEqual(viewFor(room.state, fac, room.now).script, { event: 'inspect', step: 'increment', index: 2, total: 4 });
+  assert.deepEqual(kanbanViewOf(room.state, fac, room.now).script, { event: 'inspect', step: 'increment', index: 2, total: 4 });
   while (stepOf(room) === 'increment') {
     const iteration = room.state.iterations[1];
     assert.ok(iteration !== undefined);
@@ -467,14 +468,14 @@ test('the comparison appears only in round 2 and sets the two rounds side by sid
   const first = room.state.iterations[0]?.metrics;
   const second = room.state.iterations[1]?.metrics;
   assert.ok(first !== null && first !== undefined && second !== null && second !== undefined);
-  let view = viewFor(room.state, 'p2', room.now);
+  let view = kanbanViewOf(room.state, 'p2', room.now);
   assert.deepEqual(view.inspect?.flow, second);
   assert.equal(view.inspect?.comparison, null);
   assert.equal(view.inspect?.valueDelivered, second.valueDelivered);
-  assert.equal(view.inspect?.feedback, null);
+  assert.ok(view.inspect !== null && !('feedback' in view.inspect) && !('goal' in view.inspect));
   act(room, fac, { type: 'phase.advance' });
   assert.equal(stepOf(room), 'comparison');
-  view = viewFor(room.state, 'p2', room.now);
+  view = kanbanViewOf(room.state, 'p2', room.now);
   assert.deepEqual(view.inspect?.comparison, {
     throughput: { first: first.throughput, second: second.throughput },
     averageCycleMs: { first: first.averageCycleMs, second: second.averageCycleMs },
@@ -502,7 +503,7 @@ test('round 1 goes from the flow metrics straight to the retrospective, with no 
     else act(room, fac, { type: 'phase.advance' });
   }
   assert.equal(stepOf(room), 'flow');
-  assert.deepEqual(viewFor(room.state, fac, room.now).script, { event: 'inspect', step: 'flow', index: 3, total: 3 });
+  assert.deepEqual(kanbanViewOf(room.state, fac, room.now).script, { event: 'inspect', step: 'flow', index: 3, total: 3 });
   assert.equal(room.state.iterations[0]?.feedback, null);
   act(room, fac, { type: 'phase.advance' });
   assert.equal(room.state.phase.kind, 'retro');
@@ -513,7 +514,7 @@ test('score is the accepted value over both rounds; the entry carries defects an
   const room = playGame({ players: 4, seed: 6060606, framework: 'kanban', style: { careful: false, wrongMod: 3 } });
   const [first, second] = room.state.iterations.map((own) => own.metrics);
   assert.ok(first !== null && first !== undefined && second !== null && second !== undefined);
-  const view = viewFor(room.state, facilitator(room), room.now);
+  const view = kanbanViewOf(room.state, facilitator(room), room.now);
   const score = view.summary?.score;
   assert.ok(score !== undefined);
   assert.equal(score.value, first.valueDelivered + second.valueDelivered);
@@ -536,7 +537,7 @@ test('score is the accepted value over both rounds; the entry carries defects an
 
 test('the limits agreement: suggested first after round 1, kept when limits were set, broken when not', () => {
   const kept = secondRound({ seed: 777001, pick: solos(2), limits: { inProgress: 2, review: null } });
-  const view = viewFor(kept.state, 'p1', kept.now);
+  const view = kanbanViewOf(kept.state, 'p1', kept.now);
   assert.equal(view.items.length, 8);
   finishSprint(kept);
   revealAll(kept);
@@ -561,7 +562,7 @@ test('the Kanban retrospective: wip_limits_set first after round 1, a plain WIP 
   const fac = facilitator(room);
   act(room, fac, { type: 'retro.reveal' });
   act(room, fac, { type: 'phase.advance' });
-  const suggested = viewFor(room.state, fac, room.now).retro?.suggestedAgreements ?? [];
+  const suggested = kanbanViewOf(room.state, fac, room.now).retro?.suggestedAgreements ?? [];
   assert.equal(suggested[0], 'wip_limits_set');
   assert.equal(suggested.at(-1), 'free');
   assert.ok(!suggested.includes('wip_limit'));
@@ -576,12 +577,12 @@ test('the Kanban retrospective: wip_limits_set first after round 1, a plain WIP 
   playInspect(room);
   begin(room);
   assert.equal(stepOf(room), 'previous');
-  const previous = viewFor(room.state, 'p2', room.now).retro?.previous;
-  assert.deepEqual(previous, { agreement: { type: 'wip_limits_set' }, kept: true });
-  const second = viewFor(room.state, facilitator(room), room.now).retro?.suggestedAgreements ?? [];
+  const previous = kanbanViewOf(room.state, 'p2', room.now).retro?.previous;
+  assert.deepEqual(previous, { agreement: { type: 'wip_limits_set' }, kept: true, violations: null });
+  const second = kanbanViewOf(room.state, facilitator(room), room.now).retro?.suggestedAgreements ?? [];
   assert.ok(!second.includes('wip_limits_set'));
   act(room, facilitator(room), { type: 'phase.advance' });
-  assert.ok(viewFor(room.state, 'p2', room.now).observations.every((own) => own.id !== 'retro.actionBroken'));
+  assert.ok(kanbanViewOf(room.state, 'p2', room.now).observations.every((own) => own.id !== 'retro.actionBroken'));
 });
 
 test('pair_first in Kanban: starting another item while one waits for its second worker breaks it', () => {
@@ -638,8 +639,9 @@ test('Kanban work observations: limits reached or never reached, aged work, none
   assert.ok(!noneIds.includes('work.limitReached') && !noneIds.includes('work.limitNeverReached'));
   const aged = finishedGame();
   const agedIteration = aged.iterations[1];
-  const target = aged.items[0];
+  const target = aged.items.find((own) => own.iteration === agedIteration?.iteration);
   assert.ok(agedIteration !== undefined && target !== undefined);
+  agedIteration.wipLimits = NoLimits;
   target.status = 'doing';
   target.times.startedAt = (agedIteration.flowEndedAt ?? 0) - config.kanban.agedWorkMs - 10_000;
   observe(aged, 'work');

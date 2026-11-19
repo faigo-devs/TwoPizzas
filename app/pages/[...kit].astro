@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { Gallery } from '../kit/Gallery.tsx';
-import { BoardScreen, LobbyScreen, PlanningScreen, RetroScreen, StartScreen } from '../kit/Screens.tsx';
+import { BoardScreen, LobbyScreen, PlanningScreen, RetroScreen, StartScreen, FinishScreen } from '../kit/Screens.tsx';
 
 if (import.meta.env.DEV) await import('../styles/kit.css');
 
@@ -15,31 +15,17 @@ const screens = [
   { id: 'screen-planning', title: 'Planning, poker mid-reveal' },
   { id: 'screen-board', title: 'Board, item workspace, info you hold' },
   { id: 'screen-retro', title: 'Retrospective' },
+  { id: 'screen-finish', title: 'Kanban finish bar' },
 ];
 const sections = ['tokens', 'buttons', 'fields', 'people', 'items', 'columns', 'timers', 'phase', 'poker', 'retro', 'puzzle', 'charts', 'ro', 'footer'];
 ---
 
-<Base title="Kit · LGTM" noindex>
+<Base title="Kit · Two Pizzas" noindex>
   <main id="main" class="lg-page">
     <header class="lg-kit-hero">
       <p class="lg-eyebrow">Development only</p>
-      <h1>LGTM kit</h1>
+      <h1>Two Pizzas kit</h1>
       <p class="lg-muted">Tokens, every component in every state, and five composed screens with mock data.</p>
-      <div class="lg-cluster">
-        <div data-kit-theme>
-          <fieldset class="lg-seg">
-            <legend class="lg-sr">Theme</legend>
-            <label class="lg-seg__opt">
-              <input type="radio" name="kit-theme" value="dark" />
-              <span class="lg-seg__face">Dark</span>
-            </label>
-            <label class="lg-seg__opt">
-              <input type="radio" name="kit-theme" value="light" />
-              <span class="lg-seg__face">Light</span>
-            </label>
-          </fieldset>
-        </div>
-      </div>
       <nav class="lg-kit-nav" aria-label="Kit sections">
         {screens.map((screen) => <a href={`#${screen.id}`}>{screen.title}</a>)}
         {sections.map((section) => <a href={`#${section}`}>{section}</a>)}
@@ -67,6 +53,11 @@ const sections = ['tokens', 'buttons', 'fields', 'people', 'items', 'columns', '
         <h2 class="lg-kit-screen__label"><span>5</span> Retrospective</h2>
         <div class="lg-kit-screen__frame"><RetroScreen /></div>
       </section>
+      <section class="lg-kit-screen" id="screen-finish">
+        <h2 class="lg-kit-screen__label"><span>6</span> Kanban finish bar</h2>
+        <div class="lg-kit-screen__frame" id="finish-en"><FinishScreen lang="en" /></div>
+        <div class="lg-kit-screen__frame" id="finish-ro"><FinishScreen lang="ro" /></div>
+      </section>
     </div>
 
     <Gallery />
@@ -74,21 +65,6 @@ const sections = ['tokens', 'buttons', 'fields', 'people', 'items', 'columns', '
 
   <script is:inline>
     (function () {
-      var root = document.documentElement;
-      function apply(theme) {
-        root.setAttribute('data-theme', theme);
-        try {
-          localStorage.setItem('lg-theme', theme);
-        } catch (error) {}
-        document.querySelectorAll('input[type="radio"][name$="-theme"]').forEach(function (input) {
-          input.checked = input.value === theme;
-        });
-      }
-      apply(root.getAttribute('data-theme') || 'dark');
-      document.addEventListener('change', function (event) {
-        var input = event.target;
-        if (input && input.name && input.name.slice(-6) === '-theme') apply(input.value);
-      });
       document.addEventListener('click', function (event) {
         var card = event.target.closest('[data-kit-flip] .lg-poker');
         if (!card) return;

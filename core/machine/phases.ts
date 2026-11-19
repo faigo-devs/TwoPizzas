@@ -1,6 +1,5 @@
 import type { Player, RoomState } from '../types.ts';
 import { dailyBegin } from './daily.ts';
-import { flowBegin } from './flow.ts';
 import { retroAdvance, retroBegin } from './retro.ts';
 import { rulesFor } from './rules.ts';
 import { startBox, type Refusal } from './util.ts';
@@ -17,7 +16,7 @@ export function phaseBegin(s: RoomState, p: Player): Refusal {
   if (phase.kind === 'plan') rules.planBegin(s);
   else if (phase.kind === 'work') {
     phase.step = 'running';
-    if (s.framework === 'kanban' && phase.half === 1) flowBegin(s);
+    rules.onWorkBegin(s, phase.half);
   }
   else if (phase.kind === 'daily') dailyBegin(s);
   else if (phase.kind === 'inspect') rules.inspectBegin(s);

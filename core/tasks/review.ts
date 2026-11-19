@@ -6,8 +6,8 @@ import { ReviewSettings } from './data.ts';
 /**
  * Builds a review puzzle: two copies of one file, the answer is the set of differing keys outside the ignore list.
  */
-export function generateReview(size: ItemSize, seed: number, workers: WorkerCount, dependency: boolean): ReviewPuzzle {
-  const rng = createRng(seed);
+export function generateReview(size: ItemSize, seed: string, workers: WorkerCount, dependency: boolean): ReviewPuzzle {
+  const rng = createRng(seed, 'puzzle');
   const table = config.puzzle.sizes.review[size];
   const settings = rng.shuffle(ReviewSettings).slice(0, table.keys);
   const keys = settings.map(([key]) => key);

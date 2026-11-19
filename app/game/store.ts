@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { LeaderboardResponse, PlayerView } from '../../core/index.ts';
 import type { Lang } from '../i18n/index.ts';
+import type { TourSays } from './tour/script.ts';
 import type { ConnectionStatus, FailureCode, TransportKind } from './types.ts';
-
-export type ThemeName = 'dark' | 'light';
 
 export type StartFailure = FailureCode | 'codeShape';
 
 export interface AppState {
   lang: Lang;
-  theme: ThemeName;
   mode: TransportKind | null;
   status: ConnectionStatus;
   view: PlayerView | null;
@@ -19,13 +17,19 @@ export interface AppState {
   busy: 'create' | 'join' | null;
   connectionNote: 'lost' | 'back' | null;
   scriptStep: number;
+  tourStep: number;
+  tourSays: TourSays | null;
+  tourBaseline: string | null;
+  startFocus: boolean;
   leaderboard: LeaderboardResponse | null;
+  leaderboardStatus: 'idle' | 'loading' | 'ready' | 'error';
   copied: boolean;
+  learn: Record<string, number>;
+  said: number | null;
 }
 
 const initial: AppState = {
   lang: 'ro',
-  theme: 'dark',
   mode: null,
   status: 'idle',
   view: null,
@@ -35,8 +39,15 @@ const initial: AppState = {
   busy: null,
   connectionNote: null,
   scriptStep: 0,
+  tourStep: 0,
+  tourSays: null,
+  tourBaseline: null,
+  startFocus: false,
   leaderboard: null,
+  leaderboardStatus: 'idle',
   copied: false,
+  learn: {},
+  said: null,
 };
 
 let state: AppState = initial;

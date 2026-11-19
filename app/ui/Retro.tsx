@@ -15,16 +15,19 @@ export interface RetroNoteProps {
   voteLabel: string;
   votesLabel: string;
   voteDisabled?: boolean;
+  noteId?: string;
   onVote?: () => void;
 }
 
 /**
  * Retrospective note with its vote count and vote button; a private note shows only a hidden placeholder.
  */
-export function RetroNote({ text, column, votes, voted, mine, hidden, hiddenLabel, voteLabel, votesLabel, voteDisabled, onVote }: RetroNoteProps) {
+export function RetroNote({ text, column, votes, voted, mine, hidden, hiddenLabel, voteLabel, votesLabel, voteDisabled, noteId, onVote }: RetroNoteProps) {
   return (
     <li class={cx('lg-note', `lg-note--${column}`, mine && 'is-mine', hidden && 'is-hidden')}>
-      <p class="lg-note__text">{hidden ? hiddenLabel : text}</p>
+      <p id={noteId ? `lg-note-${noteId}` : undefined} class="lg-note__text">
+        {hidden ? hiddenLabel : text}
+      </p>
       {!hidden ? (
         <div class="lg-note__foot">
           <span class="lg-note__votes">
@@ -32,7 +35,7 @@ export function RetroNote({ text, column, votes, voted, mine, hidden, hiddenLabe
             <span>{votes}</span>
             <span class="lg-sr">{votesLabel}</span>
           </span>
-          <button type="button" class="lg-note__vote" aria-pressed={voted ? 'true' : 'false'} disabled={voteDisabled && !voted} onClick={onVote}>
+          <button type="button" class="lg-note__vote" aria-pressed={voted ? 'true' : 'false'} aria-label={`${voteLabel}: ${text.slice(0, 60)}`} disabled={voteDisabled && !voted} onClick={onVote}>
             {voteLabel}
           </button>
         </div>

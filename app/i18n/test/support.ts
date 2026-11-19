@@ -34,10 +34,17 @@ export const observationIds: Record<ObservationId, true> = {
   'work.unfinished': true,
   'work.allFinished': true,
   'work.waitingForPair': true,
+  'work.limitReached': true,
+  'work.limitNeverReached': true,
+  'work.agedWork': true,
   'inspect.escapedDefects': true,
   'inspect.noEscapedDefects': true,
   'inspect.goalMet': true,
   'inspect.goalMissed': true,
+  'inspect.throughputUp': true,
+  'inspect.throughputDown': true,
+  'inspect.cycleTimeFaster': true,
+  'inspect.cycleTimeSlower': true,
   'retro.noAction': true,
   'retro.actionChosen': true,
   'retro.actionKept': true,
@@ -51,6 +58,8 @@ export const errorCodes: Record<ErrorCode, true> = {
   not_allowed: true,
   bad_request: true,
   rate_limited: true,
+  removed: true,
+  room_locked: true,
 };
 
 export const agreementTypes: Record<AgreementType, true> = {
@@ -106,14 +115,15 @@ export const stepFrameworks: {
   plan: { card: both, goal: scrum, estimate: scrum, commit: scrum, replenish: kanban, limits: kanban },
   work: { card: both, running: both },
   daily: { card: both, walk: both },
-  inspect: { card: both, increment: scrum, result: scrum, feedback: scrum, flow: kanban, comparison: kanban },
+  inspect: { card: both, increment: both, result: scrum, feedback: scrum, flow: kanban, comparison: kanban },
   retro: { card: both, previous: both, notes: both, vote: both, action: both },
 };
 
 export const helpChoices: Record<string, readonly string[]> = {
   wait: ['review', 'pair', 'info', 'none'],
   overload: ['yes', 'no'],
-  unfinished: ['estimates', 'overload', 'blocked', 'other'],
+  unfinished: ['estimates', 'overload', 'blocked', 'review', 'other'],
+  limits: ['helped', 'too_tight', 'too_loose'],
   defects: ['rushed', 'unclear', 'no_time', 'other'],
   goal: ['scope', 'blocked', 'other'],
   events: ['plan', 'daily', 'none'],
@@ -141,6 +151,11 @@ export const helpProposalIds: readonly string[] = [
   'slowed.plan',
   'slowed.daily',
   'try.focus',
+  'went_well.limits',
+  'went_well.throughput',
+  'slowed.limits',
+  'try.limits',
+  'try.finish_first',
 ];
 
 export const buttonKeys = [
@@ -168,6 +183,7 @@ export const buttonKeys = [
   'replenish.pull',
   'replenish.unpull',
   'replenish.start',
+  'replenish.toLimits',
   'limits.save',
   'item.take',
   'item.leave',

@@ -6,6 +6,7 @@ import { decide, delayFor } from './bots.ts';
 export const HumanId: PlayerId = 'you';
 const BotIds: readonly PlayerId[] = ['mate-1', 'mate-2', 'mate-3'];
 const RoomCode = 'LOCAL';
+const SkipTickMs = 1000;
 
 export interface LocalClock {
   now(): number;
@@ -25,8 +26,9 @@ export function createLocalClock(): LocalClock {
 }
 
 export function newLocalRoom(framework: Framework, clock: LocalClock): RoomState {
-  const seed = Math.floor(Math.random() * 0xffffffff);
-  let state = machine.createRoom({ code: RoomCode, framework, seed, now: clock.now() });
+  const secret = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const nameSeed = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+  let state = machine.createRoom({ code: RoomCode, framework, secret, nameSeed, now: clock.now() });
   for (const id of [HumanId, ...BotIds]) {
     const joined = machine.reduce(state, { type: 'server.join', playerId: id, name: null, now: clock.now() });
     if (joined.ok) state = joined.state;
@@ -74,13 +76,18 @@ export function skipEvent(start: RoomState, clock: LocalClock, note: (key: Key) 
     if (result.ok) state = result.state;
     return result.ok;
   };
-  for (let guard = 0; guard < 400 && eventLabel(state) === from; guard += 1) {
+  for (let guard = 0; guard < 1200 && eventLabel(state) === from; guard += 1) {
     const phase = state.phase;
     if (phase.kind === 'lobby' || phase.kind === 'summary') break;
     if (phase.kind === 'work' && phase.step === 'running') {
       const deadline = phase.timebox.deadline ?? clock.now();
-      clock.advance(Math.max(0, deadline - clock.now()) + 50);
+      clock.advance(Math.min(SkipTickMs, Math.max(0, deadline - clock.now()) + 50));
       take(applyServer(state, { type: 'server.deadline', now: clock.now() }));
+      for (const player of state.players) {
+        if (eventLabel(state) !== from) break;
+        const decision = decide(state, player.id, clock.now(), suggestionsFor(state, player.id, clock), note);
+        if (decision !== null) take(applyAction(state, player.id, decision.action, clock.now()));
+      }
       continue;
     }
     if (phase.kind === 'daily' && phase.step === 'walk') {

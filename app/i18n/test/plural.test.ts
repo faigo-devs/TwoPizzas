@@ -45,7 +45,7 @@ test('English minutes', () => {
 test('named parameters and nested plurals', () => {
   assert.equal(createT('en')('phase.scale', { minutes: 6 }), 'In this game: 6 minutes, a scale model of the real event.');
   assert.equal(createT('ro')('phase.scale', { minutes: 6 }), 'În joc: 6 minute, o machetă a evenimentului real.');
-  assert.equal(createT('ro')('privacy.p2', { minutes: 5, hours: 2 }).includes('5 minute'), true);
+  assert.equal(createT('ro')('privacy.p3', { minutes: 5, hours: 2 }).includes('5 minute'), true);
   assert.equal(createT('ro')('board.requestNote', { seconds: 45 }), 'Cererile continuă să sosească, una la fiecare 45 de secunde.');
   assert.equal(createT('ro')('item.switchingDetail', { seconds: 8 }).includes('8 secunde'), true);
 });

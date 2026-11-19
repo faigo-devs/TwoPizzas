@@ -14,6 +14,9 @@ export interface SocketAttachment {
   playerId: string | null;
   windowStart: number;
   count: number;
+  acceptedAt: number;
+  heardAt: number;
+  closing: boolean;
 }
 
 /**
@@ -24,6 +27,8 @@ export interface SocketPort {
   close(code: number, reason: string): void;
   readAttachment(): SocketAttachment | null;
   writeAttachment(value: SocketAttachment): void;
+  lastAutoResponse(): number | null;
+  isOpen(): boolean;
 }
 
 /**
@@ -31,7 +36,7 @@ export interface SocketPort {
  */
 export interface StoragePort {
   get<T>(key: string): Promise<T | undefined>;
-  put(key: string, value: unknown): Promise<void>;
+  put(entries: Record<string, unknown>): Promise<void>;
   deleteAll(): Promise<void>;
   getAlarm(): Promise<number | null>;
   setAlarm(time: number): Promise<void>;
@@ -78,6 +83,7 @@ export interface LimiterPort {
 export interface HttpDeps {
   allowedOrigins: readonly string[];
   limiter: LimiterPort;
+  socketLimiter: LimiterPort;
   rooms: RoomsPort;
   board: BoardPort;
   random: Random;

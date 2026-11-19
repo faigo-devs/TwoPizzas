@@ -1,11 +1,11 @@
 import { generateTeamName } from '../names.ts';
-import { mixSeed } from '../rng.ts';
-import type { Action, CreateRoomInput, ReduceResult, RoomState } from '../types.ts';
-import { deadline, playerConnected, playerDisconnected } from './connection.ts';
+import { StateVersion } from '../state.ts';
+import type { Action, CreateRoomInput, ReduceResult, RoomState, ServerAction, StampedClientAction } from '../types.ts';
+import { deadline, pauseAction, playerConnected, playerDisconnected } from './connection.ts';
 import { dailyEnd } from './daily.ts';
 import { join, lobbyAction } from './lobby.ts';
 import { phaseAdvance, phaseBegin } from './phases.ts';
-import { settlePoker } from './plan.ts';
+import { settlePoker } from './scrum-plan.ts';
 import { retroAction } from './retro.ts';
 import { rulesFor } from './rules.ts';
 import { summaryPublish } from './summary.ts';
@@ -17,18 +17,20 @@ import { trackWip, workAction } from './work.ts';
  */
 export function createRoom(input: CreateRoomInput): RoomState {
   return {
-    version: 1,
+    version: StateVersion,
     code: input.code,
     framework: input.framework,
-    seed: input.seed >>> 0,
-    rng: mixSeed(input.seed, 'machine'),
+    secret: input.secret,
+    nameSeed: input.nameSeed >>> 0,
+    locked: false,
+    rng: 0,
     createdAt: input.now,
     now: input.now,
     emptySince: input.now,
     players: [],
     hostId: null,
     facilitatorId: null,
-    teamName: generateTeamName(input.seed, 0),
+    teamName: generateTeamName(input.nameSeed >>> 0, 0),
     nameAttempt: 0,
     phase: { kind: 'lobby' },
     items: [],
@@ -41,7 +43,15 @@ export function createRoom(input: CreateRoomInput): RoomState {
   };
 }
 
-function dispatch(s: RoomState, action: Action): Refusal {
+function isServerAction(action: Action): action is ServerAction {
+  return action.type.startsWith('server.');
+}
+
+function unhandled(_action: never): Refusal {
+  return 'bad_request';
+}
+
+function dispatchServer(s: RoomState, action: ServerAction): Refusal {
   switch (action.type) {
     case 'server.join':
       return join(s, action);
@@ -52,16 +62,25 @@ function dispatch(s: RoomState, action: Action): Refusal {
     case 'server.disconnected':
       return playerDisconnected(s, action);
     default:
-      break;
+      return unhandled(action);
   }
+}
+
+function dispatchPlayer(s: RoomState, action: StampedClientAction): Refusal {
   const player = findPlayer(s, action.playerId);
   if (player === undefined) return 'not_allowed';
+  if (player.pausedUntil !== null && action.type !== 'player.pause') player.pausedUntil = null;
   const rules = rulesFor(s);
   switch (action.type) {
+    case 'player.pause':
+    case 'player.resume':
+      return pauseAction(s, action, player);
     case 'lobby.set_name':
     case 'lobby.volunteer':
     case 'lobby.new_team_name':
     case 'lobby.start':
+    case 'lobby.kick':
+    case 'lobby.lock':
       return lobbyAction(s, action, player);
     case 'phase.begin':
       return phaseBegin(s, player);
@@ -82,6 +101,7 @@ function dispatch(s: RoomState, action: Action): Refusal {
     case 'item.leave':
     case 'item.open':
     case 'item.close':
+    case 'work.end_early':
     case 'item.submit':
     case 'item.take_review':
     case 'item.verdict':
@@ -106,8 +126,12 @@ function dispatch(s: RoomState, action: Action): Refusal {
     case 'summary.publish':
       return summaryPublish(s, player);
     default:
-      return 'bad_request';
+      return unhandled(action);
   }
+}
+
+function dispatch(s: RoomState, action: Action): Refusal {
+  return isServerAction(action) ? dispatchServer(s, action) : dispatchPlayer(s, action);
 }
 
 /**

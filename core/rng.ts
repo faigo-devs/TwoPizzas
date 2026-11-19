@@ -1,7 +1,4 @@
-export interface Draw<T> {
-  value: T;
-  state: number;
-}
+import { sha256Hex, sha256Text } from './sha256.ts';
 
 export interface Rng {
   next(): number;
@@ -11,92 +8,26 @@ export interface Rng {
   state(): number;
 }
 
+const Scale = 2 ** 48;
+
 /**
- * FNV-1a hash of a text, as an unsigned 32-bit number.
+ * A one-way key for a label under a secret: SHA-256 of the secret, a separator and the label, in hexadecimal.
  */
-export function hashSeed(text: string): number {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
+export function deriveKey(secret: string, label: string): string {
+  return sha256Hex(`${secret}|key|${label}`);
 }
 
 /**
- * Derives a new 32-bit seed from a seed and a salt, so one room seed can feed many independent streams.
+ * A generator keyed by a secret and a label; number n is 48 bits of SHA-256 of secret, label and n, and state() is the count of numbers drawn so a stream can continue later.
  */
-export function mixSeed(seed: number, salt: number | string): number {
-  return hashSeed(`${seed >>> 0}:${salt}`);
-}
-
-/**
- * Advances a generator state by one step; the state is a plain number that can be stored.
- */
-export function nextState(state: number): number {
-  return (state + 0x6d2b79f5) >>> 0;
-}
-
-/**
- * The number in [0, 1) that a generator state stands for.
- */
-export function valueOf(state: number): number {
-  let mixed = state >>> 0;
-  mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
-  mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
-  return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
-}
-
-/**
- * Draws a number in [0, 1) and returns it with the next state.
- */
-export function draw(state: number): Draw<number> {
-  const next = nextState(state);
-  return { value: valueOf(next), state: next };
-}
-
-/**
- * Draws an integer in [0, bound) and returns it with the next state.
- */
-export function drawInt(state: number, bound: number): Draw<number> {
-  const result = draw(state);
-  return { value: Math.floor(result.value * bound), state: result.state };
-}
-
-/**
- * Draws one of the items and returns it with the next state.
- */
-export function drawPick<T>(state: number, items: readonly T[]): Draw<T> {
-  const result = drawInt(state, items.length);
-  return { value: items[result.value] as T, state: result.state };
-}
-
-/**
- * Returns a shuffled copy of the items and the next state.
- */
-export function drawShuffle<T>(state: number, items: readonly T[]): Draw<T[]> {
-  const out = [...items];
-  let current = state;
-  for (let index = out.length - 1; index > 0; index -= 1) {
-    const result = drawInt(current, index + 1);
-    current = result.state;
-    const other = result.value;
-    const held = out[index] as T;
-    out[index] = out[other] as T;
-    out[other] = held;
-  }
-  return { value: out, state: current };
-}
-
-/**
- * A stateful convenience wrapper over the plain-number functions, for code that draws many values in one call.
- */
-export function createRng(seedOrState: number): Rng {
-  let current = seedOrState >>> 0;
+export function createRng(secret: string, label: string, drawn = 0): Rng {
+  let counter = drawn;
   const next = (): number => {
-    const result = draw(current);
-    current = result.state;
-    return result.value;
+    const block = sha256Text(`${secret}|rng|${label}|${counter}`);
+    counter += 1;
+    let value = 0;
+    for (let index = 0; index < 6; index += 1) value = value * 256 + (block[index] as number);
+    return value / Scale;
   };
   const int = (bound: number): number => Math.floor(next() * bound);
   return {
@@ -104,10 +35,15 @@ export function createRng(seedOrState: number): Rng {
     int,
     pick: <T>(items: readonly T[]): T => items[int(items.length)] as T,
     shuffle: <T>(items: readonly T[]): T[] => {
-      const result = drawShuffle(current, items);
-      current = result.state;
-      return result.value;
+      const out = [...items];
+      for (let index = out.length - 1; index > 0; index -= 1) {
+        const other = int(index + 1);
+        const held = out[index] as T;
+        out[index] = out[other] as T;
+        out[other] = held;
+      }
+      return out;
     },
-    state: () => current,
+    state: () => counter,
   };
 }

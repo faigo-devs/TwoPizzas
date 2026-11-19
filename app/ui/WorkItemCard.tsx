@@ -13,8 +13,13 @@ export interface WorkItemCardProps {
   subject: string;
   value: number;
   estimate?: number | null;
+  showEstimate?: boolean;
   status: ItemStatus;
   statusLabel: string;
+  titleId?: string;
+  theme?: string;
+  goalTheme?: boolean;
+  goalLabel?: string;
   workers?: AvatarProps[];
   reviewer?: AvatarProps;
   pairSlotLabel?: string;
@@ -45,8 +50,13 @@ export function WorkItemCard({
   subject,
   value,
   estimate,
+  showEstimate = true,
   status,
   statusLabel,
+  titleId,
+  theme,
+  goalTheme = false,
+  goalLabel,
   workers = [],
   reviewer,
   pairSlotLabel,
@@ -76,7 +86,14 @@ export function WorkItemCard({
         </span>
         <StatusMarker status={status} label={statusLabel} />
       </div>
-      <h4 class="lg-item__title">
+      {theme ? (
+        <p class={cx('lg-item__theme', goalTheme && 'is-goal')}>
+          {goalTheme ? <Icon name="flag" size={12} /> : null}
+          <span>{theme}</span>
+          {goalTheme && goalLabel ? <span class="lg-sr">{goalLabel}</span> : null}
+        </p>
+      ) : null}
+      <h4 id={titleId} class="lg-item__title">
         {onOpen ? (
           <button type="button" class="lg-item__open" onClick={onOpen} aria-label={openLabel ? `${openLabel} ${id} ${subject}` : undefined}>
             {title}
@@ -97,12 +114,14 @@ export function WorkItemCard({
           <dt>{labels.value}</dt>
           <dd class="lg-item__value">{value}</dd>
         </div>
-        <div>
-          <dt>{labels.estimate}</dt>
-          <dd class={cx('lg-item__est', (estimate === null || estimate === undefined) && 'is-none')}>
-            {estimate === null || estimate === undefined ? labels.noEstimate : estimate}
-          </dd>
-        </div>
+        {showEstimate ? (
+          <div>
+            <dt>{labels.estimate}</dt>
+            <dd class={cx('lg-item__est', (estimate === null || estimate === undefined) && 'is-none')}>
+              {estimate === null || estimate === undefined ? labels.noEstimate : estimate}
+            </dd>
+          </div>
+        ) : null}
         {age ? (
           <div>
             <dt>

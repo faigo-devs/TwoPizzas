@@ -30,7 +30,7 @@ test('the numbers of the specification are in the config', () => {
   assert.equal(config.goal.bonus, 5);
   assert.equal(config.review.waitThresholdMs, 60_000);
   assert.equal(config.kanban.arrivalIntervalMs, 45_000);
-  assert.equal(config.room.emptyGraceMs, 300_000);
+  assert.equal(config.room.emptyGraceMs, 900_000);
   assert.equal(config.room.lifetimeMs, 7_200_000);
   assert.equal(config.room.codeLetters, 'BCDFGHJKLMNPRSTVWXZ');
 });

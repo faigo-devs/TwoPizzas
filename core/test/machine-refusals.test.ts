@@ -166,7 +166,7 @@ Table.push(
   { context: 'planCommit', who: 'p2', action: { type: 'plan.pull', itemId: '#1' }, code: 'not_allowed' },
   { context: 'planCommit', who: 'p1', action: { type: 'plan.set_limits', inProgress: 2, review: 2 }, code: 'not_allowed' },
   { context: 'workRunning', who: 'p2', action: { type: 'item.take', itemId: '#99' }, code: 'bad_request' },
-  { context: 'workRunning', who: 'p2', action: { type: 'item.take', itemId: '#10' }, code: 'not_allowed' },
+  { context: 'workRunning', who: 'p2', action: { type: 'work.end_early' }, code: 'not_allowed' },
   { context: 'workRunning', who: 'p2', action: { type: 'item.close' }, code: 'not_allowed' },
   { context: 'workRunning', who: 'p2', action: { type: 'item.leave', itemId: '#1' }, code: 'not_allowed' },
   { context: 'workRunning', who: 'p2', action: { type: 'item.verdict', itemId: '#1', verdict: 'lgtm' }, code: 'not_allowed' },

@@ -15,8 +15,8 @@ export function resolveConflict(rule: MergeRule, sideA: number, sideB: number): 
 /**
  * Builds a merge puzzle: a base file and two sides' changes, the merge rule decides lines both sides changed.
  */
-export function generateMerge(size: ItemSize, seed: number, workers: WorkerCount, dependency: boolean): MergePuzzle {
-  const rng = createRng(seed);
+export function generateMerge(size: ItemSize, seed: string, workers: WorkerCount, dependency: boolean): MergePuzzle {
+  const rng = createRng(seed, 'puzzle');
   const table = config.puzzle.sizes.merge[size];
   const settings = rng.shuffle(MergeSettings).slice(0, table.lines);
   const rule = rng.pick(MergeRules);

@@ -1,6 +1,6 @@
 const SeatKey = 'lg-seat';
 const LanguageKey = 'lg-lang';
-const ThemeKey = 'lg-theme';
+const StaleThemeKey = 'lg-theme';
 
 export interface Seat {
   code: string;
@@ -52,17 +52,28 @@ export function clearSeat(): void {
   }
 }
 
-export function readStored(key: 'language' | 'theme'): string | null {
+export function readStored(key: 'language'): string | null {
   try {
-    return localStorage.getItem(key === 'language' ? LanguageKey : ThemeKey);
+    return localStorage.getItem(LanguageKey);
   } catch {
     return null;
   }
 }
 
-export function writeStored(key: 'language' | 'theme', value: string): void {
+export function writeStored(key: 'language', value: string): void {
   try {
-    localStorage.setItem(key === 'language' ? LanguageKey : ThemeKey, value);
+    localStorage.setItem(LanguageKey, value);
+  } catch {
+    return;
+  }
+}
+
+/**
+ * Removes the theme entry that earlier versions of the page left in local storage.
+ */
+export function clearStaleTheme(): void {
+  try {
+    localStorage.removeItem(StaleThemeKey);
   } catch {
     return;
   }

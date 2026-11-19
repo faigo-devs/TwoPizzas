@@ -47,16 +47,17 @@ test('three players play real actions through to the start of the Sprint', async
   }
 });
 
-test('views are never sent to the wrong player and hold no seed or token', async () => {
+test('views are never sent to the wrong player and hold no secret, name seed or token', async () => {
   const h = new Harness();
   const players = await toSprint(h);
-  const seed = String(h.state().seed);
-  const tokens = Object.values(h.storage.data.get('tokens') as Record<string, string>);
+  const { secret, nameSeed } = h.state();
+  const tokens = Object.values(h.storage.data.get('tokenHashes') as Record<string, string>);
   for (const player of players) {
     const own = player.welcome().playerId;
     for (const view of player.views()) assert.equal(view.selfId, own);
     const text = player.sent.join('');
-    assert.ok(!text.includes(`"seed":${seed}`));
+    assert.ok(!text.includes(secret));
+    assert.ok(!text.includes(String(nameSeed)));
     for (const token of tokens) {
       if (token !== player.welcome().token) assert.ok(!text.includes(token));
     }
@@ -247,6 +248,7 @@ test('a wake-up marks players without a live socket as disconnected', async () =
   const first = await h.join();
   await h.join();
   first.closed = { code: 1006, reason: '' };
+  first.finished = true;
   h.hibernate();
   const third = await h.connect();
   assert.notEqual(third, undefined);

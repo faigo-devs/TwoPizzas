@@ -18,9 +18,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  build:
     if: vars.PUBLISH_ENABLED == 'true'
-    environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -28,10 +27,37 @@ jobs:
         working-directory: worker
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
 
+      - name: Bundle the worker without uploading it
+        run: |
+          mkdir -p ../out/bundle
+          npx wrangler deploy --dry-run --outdir ../out/bundle
+          rm -f ../out/bundle/index.js.map ../out/bundle/README.md
+          test -s ../out/bundle/index.js
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: worker-bundle
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    if: vars.PUBLISH_ENABLED == 'true'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
       - name: Require the publication secrets and variables
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -49,12 +75,39 @@ jobs:
             exit 1
           fi
 
-      - run: npm ci
-      - run: npm test
-      - run: npm run typecheck
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
-      - name: Deploy the worker with routes and allowed origins from SITE_HOSTS
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Download the bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: worker-bundle
+          path: out/
+
+      - name: Assemble the deploy folder with the configuration from the repository and only the code from the bundle
+        run: |
+          test -s out/bundle/index.js
+          mkdir -p deploy
+          cp out/bundle/index.js deploy/index.js
+          sed 's|^main = .*|main = "index.js"|' worker/wrangler.toml > deploy/wrangler.toml
+          grep -q '^main = "index.js"$' deploy/wrangler.toml
+
+      - name: Install only the deploy tool from the repository's own lock, without install scripts
+        run: |
+          mkdir -p "$RUNNER_TEMP/tool"
+          cp worker/package.json worker/package-lock.json "$RUNNER_TEMP/tool/"
+          cd "$RUNNER_TEMP/tool"
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Deploy the bundle with routes and allowed origins from SITE_HOSTS
+        working-directory: deploy
         env:
+          TOOL_DIR: ${{ runner.temp }}/tool
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SITE_HOSTS: ${{ vars.SITE_HOSTS }}
@@ -76,7 +129,7 @@ jobs:
             echo "::error::SITE_HOSTS holds no host name"
             exit 1
           fi
-          npx wrangler deploy "${args[@]}" --var "ALLOWED_ORIGINS:${origins}"
+          "$TOOL_DIR/node_modules/.bin/wrangler" deploy --no-bundle "${args[@]}" --var "ALLOWED_ORIGINS:${origins}"
 
       - name: Smoke test the public leaderboard route
         env:

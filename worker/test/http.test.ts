@@ -16,8 +16,9 @@ interface Setup {
   existing: Set<string>;
 }
 
-function setup(limitPerKey = 5, random = seededRandom(7)): Setup {
+function setup(limitPerKey = 5, random = seededRandom(7), socketLimitPerKey = 60): Setup {
   const counts = new Map<string, number>();
+  const socketCounts = new Map<string, number>();
   const created: { code: string; framework: string }[] = [];
   const forwarded: string[] = [];
   const logs: string[] = [];
@@ -33,6 +34,13 @@ function setup(limitPerKey = 5, random = seededRandom(7)): Setup {
         const used = (counts.get(key) ?? 0) + 1;
         counts.set(key, used);
         return { success: used <= limitPerKey };
+      },
+    },
+    socketLimiter: {
+      async limit({ key }) {
+        const used = (socketCounts.get(key) ?? 0) + 1;
+        socketCounts.set(key, used);
+        return { success: used <= socketLimitPerKey };
       },
     },
     rooms: {

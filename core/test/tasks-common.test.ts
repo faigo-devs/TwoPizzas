@@ -11,7 +11,7 @@ test('the same spec gives the same puzzle, another seed another puzzle', () => {
   for (const kind of Kinds) {
     for (const spec of specs(kind, 10)) {
       assert.deepEqual(generatePuzzle(spec), generatePuzzle(spec));
-      assert.notDeepEqual(generatePuzzle(spec), generatePuzzle({ ...spec, seed: spec.seed + 1 }));
+      assert.notDeepEqual(generatePuzzle(spec), generatePuzzle({ ...spec, seed: `${spec.seed}x` }));
     }
   }
 });

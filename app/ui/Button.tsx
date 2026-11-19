@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { cx } from './cx.ts';
 import { Icon, type IconName } from './Icon.tsx';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger' | 'approve';
+export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger' | 'approve' | 'tour';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps {
@@ -14,6 +14,8 @@ export interface ButtonProps {
   type?: 'button' | 'submit';
   icon?: IconName;
   block?: boolean;
+  describedBy?: string;
+  label?: string;
   class?: string;
   onClick?: (event: MouseEvent) => void;
   children?: ComponentChildren;
@@ -31,6 +33,8 @@ export function Button({
   type = 'button',
   icon,
   block = false,
+  describedBy,
+  label,
   class: className,
   onClick,
   children,
@@ -41,6 +45,8 @@ export function Button({
       class={cx('lg-btn', `lg-btn--${variant}`, `lg-btn--${size}`, block && 'lg-btn--block', busy && 'is-busy', className)}
       disabled={disabled || busy}
       aria-busy={busy ? 'true' : undefined}
+      aria-describedby={describedBy}
+      aria-label={label}
       onClick={onClick}
     >
       {busy ? <span class="lg-btn__spinner" aria-hidden="true" /> : icon ? <Icon name={icon} size={18} /> : null}

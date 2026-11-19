@@ -71,8 +71,9 @@ for (const players of sizes) {
 test('a Scrum game never raises a Kanban-only observation', () => {
   const room = playGame({ players: 4, seed: 8080808 });
   for (const own of room.state.observations) assert.ok(!KanbanOnly.includes(own.id), `${own.id} raised in Scrum`);
-  assert.equal(viewFor(room.state, 'p1', room.now).kanban, null);
-  assert.equal(viewFor(room.state, 'p1', room.now).limits, null);
+  const view = viewFor(room.state, 'p1', room.now);
+  assert.equal(view.framework, 'scrum');
+  assert.ok(!('kanban' in view) && !('limits' in view));
 });
 
 test('the Kanban config keeps the pool and the arrivals inside what a round can hold', () => {

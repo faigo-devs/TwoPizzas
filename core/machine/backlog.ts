@@ -1,5 +1,5 @@
 import { config } from '../config.ts';
-import { createRng, mixSeed } from '../rng.ts';
+import { createRng, deriveKey } from '../rng.ts';
 import type { Rng } from '../rng.ts';
 import type { ItemSize, IterationNumber, PuzzleKind, RoomState, Theme, WorkItem } from '../types.ts';
 import { itemNumber } from './util.ts';
@@ -58,7 +58,7 @@ export function buildItem(s: RoomState, draft: Draft, iteration: IterationNumber
     value: draft.value,
     theme: draft.theme,
     subject,
-    seed: mixSeed(s.seed, `item:${number}`),
+    seed: deriveKey(s.secret, `item:${number}`),
     estimate: null,
     status: 'backlog',
     workersNeeded: config.backlog.workersNeeded[draft.size],
@@ -95,7 +95,7 @@ export function generateBacklog(
   composition: Record<ItemSize, number> = config.backlog.composition,
   iteration: IterationNumber = 1,
 ): void {
-  const rng = createRng(s.rng);
+  const rng = createRng(s.secret, 'machine', s.rng);
   const sizes = sizeList(composition);
   const themes = rng.shuffle([...config.backlog.themes, ...config.backlog.themes, ...config.backlog.themes, rng.pick(config.backlog.themes)]);
   const kinds = rng.shuffle([...Kinds, ...Kinds, ...rng.shuffle(Kinds).slice(0, Math.max(0, sizes.length - 2 * Kinds.length))]);
@@ -130,7 +130,7 @@ export function generateBacklog(
  * Adds the customers' new items for the next iteration and returns them.
  */
 export function generateFeedbackItems(s: RoomState, iteration: IterationNumber): WorkItem[] {
-  const rng = createRng(s.rng);
+  const rng = createRng(s.secret, 'machine', s.rng);
   const sizes = sizeList(config.feedback.composition);
   const subjects = pickSubjects(s, rng, sizes.length);
   const items = sizes.map((size, index) =>
@@ -167,8 +167,8 @@ export function reorderBacklog(s: RoomState): void {
  * Builds request number index of a Kanban round, already in Ready; the room seed alone decides what arrives.
  */
 export function makeArrival(s: RoomState, iteration: IterationNumber, index: number, at: number): WorkItem {
-  const sizes = createRng(mixSeed(s.seed, `arrivals:${iteration}`)).shuffle(sizeList(config.kanban.arrivalComposition));
-  const rng = createRng(mixSeed(s.seed, `arrival:${iteration}:${index}`));
+  const sizes = createRng(s.secret, `arrivals:${iteration}`).shuffle(sizeList(config.kanban.arrivalComposition));
+  const rng = createRng(s.secret, `arrival:${iteration}:${index}`);
   const size = sizes[index % sizes.length] as ItemSize;
   const subject = pickSubjects(s, rng, 1)[0] as string;
   const created = buildItem(

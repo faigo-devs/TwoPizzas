@@ -4,6 +4,7 @@ import { config } from '../config.ts';
 import { nextDeadline, viewFor } from '../machine/index.ts';
 import {
   act,
+  scrumViewOf,
   advanceTo,
   begin,
   facilitator,
@@ -64,7 +65,7 @@ test('start needs the host and three connected players', () => {
 
 test('a Kanban room starts like a Scrum room and opens on its Replenishment card', () => {
   const room = newRoom({ framework: 'kanban', players: 3 });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['start_game']);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['start_game', 'kick_player', 'lock_room']);
   act(room, 'p1', { type: 'lobby.start' });
   assert.equal(room.state.phase.kind, 'plan');
   assert.equal(room.state.items.filter((own) => own.status === 'backlog').length, 8);
@@ -83,7 +84,7 @@ test('a volunteer facilitates the first iteration and the role passes on in the 
   assert.equal(room.state.facilitatorId, 'p4');
   assert.equal(room.state.iterations[0]?.facilitatorId, 'p3');
   assert.equal(room.state.iterations[1]?.facilitatorId, 'p4');
-  const view = viewFor(room.state, 'p4', room.now);
+  const view = scrumViewOf(room.state, 'p4', room.now);
   assert.equal(view.players.find((player) => player.id === 'p4')?.role, 'facilitator');
 });
 
@@ -124,7 +125,7 @@ test('goal votes pick the Sprint Goal and the facilitator confirms it', () => {
   act(room, 'p2', { type: 'plan.goal_vote', theme: options[1] ?? 'payments' });
   act(room, 'p3', { type: 'plan.goal_vote', theme: options[1] ?? 'payments' });
   act(room, 'p4', { type: 'plan.goal_vote', theme: options[0] ?? 'payments' });
-  const view = viewFor(room.state, 'p2', room.now);
+  const view = scrumViewOf(room.state, 'p2', room.now);
   assert.equal(view.planning?.myGoalVote, options[1]);
   assert.equal(view.planning?.goalVotes[options[1] ?? 'payments'], 2);
   assert.equal(code(tryAct(room, 'p2', { type: 'plan.goal_confirm' })), 'not_allowed');
@@ -142,15 +143,15 @@ test('planning poker hides votes until all have voted or the facilitator reveals
   assert.equal(first, room.state.items[0]?.id);
   act(room, 'p2', { type: 'plan.poker_vote', card: 13 });
   act(room, 'p3', { type: 'plan.poker_vote', card: 1 });
-  const hidden = viewFor(room.state, 'p4', room.now).planning?.poker;
+  const hidden = scrumViewOf(room.state, 'p4', room.now).planning?.poker;
   assert.deepEqual(hidden?.voted.sort(), ['p2', 'p3']);
   assert.equal(hidden?.votes, null);
   assert.equal(hidden?.myVote, null);
   assert.equal(code(tryAct(room, 'p2', { type: 'plan.poker_reveal' })), 'not_allowed');
   act(room, 'p4', { type: 'plan.poker_vote', card: 5 });
-  assert.equal(viewFor(room.state, 'p4', room.now).planning?.poker?.revealed, false);
+  assert.equal(scrumViewOf(room.state, 'p4', room.now).planning?.poker?.revealed, false);
   act(room, 'p1', { type: 'plan.poker_vote', card: 3 });
-  const shown = viewFor(room.state, 'p4', room.now).planning?.poker;
+  const shown = scrumViewOf(room.state, 'p4', room.now).planning?.poker;
   assert.equal(shown?.revealed, true);
   assert.equal(shown?.votes?.p2, 13);
   assert.equal(shown?.median, 5);
@@ -160,8 +161,8 @@ test('planning poker hides votes until all have voted or the facilitator reveals
   assert.equal(room.state.iterations[0]?.poker?.revealed, false);
   act(room, 'p2', { type: 'plan.poker_vote', card: 3 });
   act(room, 'p1', { type: 'plan.poker_reveal' });
-  assert.equal(viewFor(room.state, 'p3', room.now).planning?.poker?.revealed, true);
-  assert.equal(viewFor(room.state, 'p3', room.now).planning?.poker?.revotesLeft, 0);
+  assert.equal(scrumViewOf(room.state, 'p3', room.now).planning?.poker?.revealed, true);
+  assert.equal(scrumViewOf(room.state, 'p3', room.now).planning?.poker?.revotesLeft, 0);
   assert.equal(code(tryAct(room, 'p1', { type: 'plan.poker_record', estimate: 2 })), 'ok');
   assert.equal(room.state.items[0]?.estimate, 2);
   assert.notEqual(room.state.iterations[0]?.poker?.itemId, first);
@@ -197,7 +198,7 @@ test('commitment shows the sum of estimates and Sprint 2 shows the velocity of S
   const velocity = room.state.iterations[0]?.metrics?.velocity ?? -1;
   assert.ok(velocity > 0);
   begin(room);
-  assert.equal(viewFor(room.state, 'p1', room.now).planning?.previousVelocity, velocity);
+  assert.equal(scrumViewOf(room.state, 'p1', room.now).planning?.previousVelocity, velocity);
   assert.equal(viewFor(room.state, 'p1', room.now).iteration, 2);
 });
 
@@ -239,7 +240,7 @@ test('observations keep a positive and a watch-out one when both exist, at most 
   assert.ok(view.observations.some((own) => own.positive));
 });
 
-test('a disconnected player keeps their seat, items are released after the delay, roles pass on', () => {
+test('D-077: a disconnected player keeps their seat, items are released after the delay, roles pass on', () => {
   const room = startedRoom(4, 7676767);
   planCustom(room, (backlog) => backlog.filter((item) => item.workersNeeded === 1).slice(0, 2).map((item) => item.id));
   begin(room);
@@ -296,25 +297,25 @@ test('the configuration is coherent with the rules of the machine', () => {
 
 test('controls tell each player what they may do right now', () => {
   const room = newRoom({ players: 3 });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['start_game']);
-  assert.deepEqual(viewFor(room.state, 'p2', room.now).controls, []);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['start_game', 'kick_player', 'lock_room']);
+  assert.deepEqual(viewFor(room.state, 'p2', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), []);
   act(room, 'p1', { type: 'lobby.start' });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['begin_phase']);
-  assert.deepEqual(viewFor(room.state, 'p2', room.now).controls, []);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['begin_phase']);
+  assert.deepEqual(viewFor(room.state, 'p2', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), []);
   begin(room);
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, []);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), []);
   act(room, 'p2', { type: 'plan.goal_vote', theme: room.state.iterations[0]?.goalOptions[0] ?? 'payments' });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['confirm_goal']);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['confirm_goal']);
   act(room, 'p1', { type: 'plan.goal_confirm' });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['stop_estimation']);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['stop_estimation']);
   act(room, 'p2', { type: 'plan.poker_vote', card: 3 });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['poker_reveal', 'stop_estimation']);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['poker_reveal', 'stop_estimation']);
   act(room, 'p1', { type: 'plan.poker_reveal' });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['poker_revote', 'poker_record', 'stop_estimation']);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['poker_revote', 'poker_record', 'stop_estimation']);
   act(room, 'p1', { type: 'plan.estimation_stop' });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, []);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), []);
   act(room, 'p2', { type: 'plan.pull', itemId: '#1' });
-  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls, ['advance']);
+  assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['advance']);
   assert.deepEqual(viewFor(room.state, 'p1', room.now).script, { event: 'plan', step: 'commit', index: 4, total: 4 });
   assert.equal(viewFor(room.state, 'p2', room.now).script, null);
 });

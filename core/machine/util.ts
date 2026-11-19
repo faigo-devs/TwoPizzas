@@ -10,6 +10,7 @@ import type {
   RoomState,
   Signals,
   Timebox,
+  VerdictView,
   WorkItem,
 } from '../types.ts';
 
@@ -21,6 +22,10 @@ export function findPlayer(s: RoomState, id: PlayerId): Player | undefined {
 
 export function findItem(s: RoomState, id: ItemId): WorkItem | undefined {
   return s.items.find((item) => item.id === id);
+}
+
+export function revealedVerdicts(state: IterationState): VerdictView[] {
+  return state.verdicts.slice(0, state.verdictsRevealed).map((verdict) => ({ ...verdict }));
 }
 
 export function connectedPlayers(s: RoomState): Player[] {
@@ -75,7 +80,12 @@ export function emptySignals(): Signals {
  * Trims, collapses whitespace, drops control characters and cuts to a number of characters.
  */
 export function sanitize(text: string, max: number): string {
-  const collapsed = text.replace(/\s+/gu, ' ').replace(/\p{Cc}/gu, '').trim();
+  const collapsed = text
+    .replace(/\s+/gu, ' ')
+    .replace(/[\p{Cc}\p{Cf}\p{Co}\p{Cs}\u115F\u1160\u2800\u3164\uFFA0]/gu, '')
+    .replace(/(\p{M}{3})\p{M}+/gu, '$1')
+    .replace(/ {2,}/gu, ' ')
+    .trim();
   return Array.from(collapsed).slice(0, max).join('').trim();
 }
 

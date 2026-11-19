@@ -2,7 +2,10 @@ import { config } from '../config.ts';
 import { generatePuzzle, parseResponse } from '../tasks/index.ts';
 import type { Player, PlayerId, RoomState, StampedClientAction, WorkItem } from '../types.ts';
 import { onItemStarted, onReviewWaited } from './agreements.ts';
-import { startBlocked, submitBlocked } from './flow.ts';
+import { pendingArrival, submitBlocked } from './flow.ts';
+import { rulesFor } from './rules.ts';
+import { endWorkHalf } from './transitions.ts';
+import { canLeave, canOpen, canPromiseHelp, canTake, canTakeReview, canWithdrawHelp } from './rights.ts';
 import {
   currentIteration,
   doingCount,
@@ -99,6 +102,14 @@ export function releaseAll(s: RoomState, id: PlayerId): void {
   }
 }
 
+/**
+ * Whether the running half may end early: nothing is left To do, In progress or In review, and no Kanban request is still to arrive.
+ */
+export function canEndHalf(s: RoomState): boolean {
+  if (!isRunning(s) || pendingArrival(s) !== null) return false;
+  return !s.items.some((item) => item.status === 'todo' || item.status === 'doing' || item.status === 'review');
+}
+
 function openFor(p: Player, item: WorkItem, mode: 'work' | 'review', now: number): void {
   p.open = { itemId: item.id, mode, readyAt: now + config.contextSwitchMs };
 }
@@ -114,9 +125,12 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
     case 'item.take': {
       const item = findItem(s, action.itemId);
       if (item === undefined) return 'bad_request';
-      if (item.workers.includes(p.id)) return 'not_allowed';
+      if (!canTake(s, p, item)) return 'not_allowed';
+      if (item.status === 'backlog') {
+        item.status = 'todo';
+        item.iteration = currentIteration(s).iteration;
+      }
       if (item.status === 'todo') {
-        if (!running || startBlocked(s)) return 'not_allowed';
         item.status = 'doing';
         item.workers = [p.id];
         item.times.startedAt = s.now;
@@ -125,20 +139,20 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
         onItemStarted(s, item);
         return null;
       }
-      if (item.status === 'doing' && waitsForPair(item)) {
-        item.workers.push(p.id);
-        if (item.workers.length === item.workersNeeded) completePair(s, item);
-        countDailyChange(s);
-        return null;
-      }
-      return 'not_allowed';
+      item.workers.push(p.id);
+      if (item.workers.length === item.workersNeeded) completePair(s, item);
+      countDailyChange(s);
+      return null;
+    }
+    case 'work.end_early': {
+      if (!running || p.id !== s.facilitatorId || !canEndHalf(s)) return 'not_allowed';
+      endWorkHalf(s, true);
+      return null;
     }
     case 'item.leave': {
       const item = findItem(s, action.itemId);
       if (item === undefined) return 'bad_request';
-      const asWorker = item.status === 'doing' && item.workers.includes(p.id);
-      const asReviewer = item.status === 'review' && item.reviewer === p.id;
-      if (!asWorker && !asReviewer) return 'not_allowed';
+      if (!canLeave(s, p, item)) return 'not_allowed';
       releaseFrom(s, item, p.id);
       if (p.open !== null && p.open.itemId === item.id) p.open = null;
       countDailyChange(s);
@@ -148,10 +162,7 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
       if (!running) return 'not_allowed';
       const item = findItem(s, action.itemId);
       if (item === undefined) return 'bad_request';
-      if (p.open !== null && p.open.itemId === item.id && p.open.mode === action.mode) return 'not_allowed';
-      if (action.mode === 'work') {
-        if (item.status !== 'doing' || !item.workers.includes(p.id) || item.puzzle === null) return 'not_allowed';
-      } else if (item.status !== 'review' || item.reviewer !== p.id) return 'not_allowed';
+      if (!canOpen(s, p, item, action.mode)) return 'not_allowed';
       openFor(p, item, action.mode, s.now);
       return null;
     }
@@ -181,7 +192,7 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
     case 'item.take_review': {
       const item = findItem(s, action.itemId);
       if (item === undefined) return 'bad_request';
-      if (item.status !== 'review' || item.reviewer !== null || item.workers.includes(p.id)) return 'not_allowed';
+      if (!canTakeReview(s, p, item)) return 'not_allowed';
       const state = currentIteration(s);
       if (item.times.submittedAt !== null) onReviewWaited(s, workElapsed(state, item.times.submittedAt, s.now));
       item.reviewer = p.id;
@@ -215,7 +226,7 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
     case 'help.promise': {
       const item = findItem(s, action.itemId);
       if (item === undefined) return 'bad_request';
-      if (!isBlocked(item) || item.helpPromisedBy !== null || item.workers.includes(p.id)) return 'not_allowed';
+      if (!canPromiseHelp(s, p, item)) return 'not_allowed';
       item.helpPromisedBy = p.id;
       countDailyChange(s);
       return null;
@@ -223,7 +234,7 @@ export function workAction(s: RoomState, action: StampedClientAction, p: Player)
     case 'help.withdraw': {
       const item = findItem(s, action.itemId);
       if (item === undefined) return 'bad_request';
-      if (item.helpPromisedBy !== p.id) return 'not_allowed';
+      if (!canWithdrawHelp(s, p, item)) return 'not_allowed';
       item.helpPromisedBy = null;
       return null;
     }
@@ -240,8 +251,8 @@ export function trackWip(s: RoomState): void {
   const state = currentIteration(s);
   const doing = doingCount(s);
   const reviewing = s.items.filter((item) => item.status === 'review').length;
-  const started = s.framework === 'kanban' ? doing + reviewing : doing;
+  const started = rulesFor(s).wipCount(doing, reviewing);
   state.signals.wipMax = Math.max(state.signals.wipMax, started);
-  state.signals.inProgressMax = Math.max(state.signals.inProgressMax ?? 0, doing);
-  state.signals.reviewMax = Math.max(state.signals.reviewMax ?? 0, reviewing);
+  state.signals.inProgressMax = Math.max(state.signals.inProgressMax, doing);
+  state.signals.reviewMax = Math.max(state.signals.reviewMax, reviewing);
 }
