@@ -8,5 +8,5 @@
     "types": ["node"]
   },
   "include": ["app", "core", ".astro/types.d.ts"],
-  "exclude": ["dist", "reference", "worker", "node_modules"]
+  "exclude": ["dist", "worker", "node_modules"]
 }

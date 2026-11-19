@@ -21,10 +21,11 @@ which stays as it is. Romanian and English. One static page on the host, a real-
 - `worker/`: Cloudflare Worker with the `Room` and `Leaderboard` Durable Objects; its own `package.json`.
 - `app/`: the client (Astro `srcDir`): `pages/`, `ui/` (presentational Preact components), `game/` (screens,
   connection), `i18n/`, `styles/`, `assets/`. `public/` holds the host's `web.config` and `.htaccess`.
-- `reference/piesa-lipsa/`: the earlier no-server game, read-only source for porting; deleted when the port is done.
 - `scripts/`: the policy hashes and output check of the build, the staging test of the room server
   (`staging-check.mjs`; it refuses the published host), and `scripts/e2e/` (whole-game browser checks; see its
-  README). `.qa/` (ignored) holds screenshots, run logs and the reviewers' reports.
+  README).
+- `docs/reviews/`: the independent reviewers' reports, one file per pass. `.qa/` (ignored) holds screenshots and run
+  logs.
 
 ## Commands
 

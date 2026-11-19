@@ -23,8 +23,8 @@ taken part in each once.
 | Client | `app/` (Astro `srcDir`), `public/` | Preact app in one island, `app/ui/` (presentational components) and `app/game/` (screens, connection); copy in `app/i18n/`; styles in `app/styles/`. One page, `app/pages/index.astro`, plus `404.astro`. |
 
 The root `package.json` is the client's (Astro, Preact, the fonts, TypeScript). Dependencies beyond those need the
-owner's (orchestrator's) agreement first. `reference/piesa-lipsa/` holds the earlier no-server game the task generators
-are ported from; it is deleted once the port is done.
+owner's (orchestrator's) agreement first. The task generators were ported from an earlier no-server game, kept in
+`reference/piesa-lipsa/` until the port was done and then removed (D-118).
 
 The game is published on its own subdomain, `twopizzas.faigo.ro` (the owner's decision of 18 November 2026); the
 firm's site stays at www.faigo.ro, lives in its own repository and is not touched from here. The two publish to
@@ -77,7 +77,7 @@ name such as `payments-api`), an estimate (story points, from planning poker, op
 Sizes change the amount of information (lines, components, rules), not the kind of thinking. A full item with all its
 information in one view (the reviewer's, or an `S` worker's) takes roughly 30–45 s of attention.
 
-### 3.4 The four puzzles (ported from `reference/piesa-lipsa/game/engine.mjs`)
+### 3.4 The four puzzles (ported from the earlier no-server game, D-118)
 - `review`: two copies of one configuration file, lines in a different order; the answer is the set of keys whose values
   differ. A pair holds one copy each; an `S` worker and a reviewer see both.
 - `order`: the start order of components from "X starts after Y" rules; exactly one order fits all rules, never one
@@ -417,7 +417,7 @@ a decision that no longer holds is marked superseded with the id that replaces i
   rounds come from the view.
 - **D-032.** In local mode a scripted facilitator pulls three requests and sets the limits to three in In Progress and two in
   Review; scripted teammates respect the limits.
-- **D-033.** Copy after the fidelity review of 16 November 2026 (report in `.qa/reviews/`): the Sprint is the container of the
+- **D-033.** Copy after the fidelity review of 16 November 2026 (report in `docs/reviews/`): the Sprint is the container of the
   other events and its card is "Sprint: the work"; a timebox is never called soft (the game lets the clock run and
   records the overrun; in Scrum an event ends within its timebox); the game "checks each finished item's answer" and
   the verdicts read "Right answer" and "Wrong answer (escaped defect)", because the Scrum Guide has no acceptance
@@ -710,6 +710,10 @@ a decision that no longer holds is marked superseded with the id that replaces i
 - **D-117.** Text files are stored with LF line endings (`.gitattributes`: `* text=auto eol=lf`, images and fonts
   binary), because editors and tools on Windows wrote CRLF into some files and made whole files look changed in a
   diff. The commit that adds the rule renormalizes the index once.
+- **D-118.** The port is done, so `reference/piesa-lipsa/` is removed; it stays in the history before the version 1
+  commit. The reviewers' reports live in `docs/reviews/`, one Markdown file per pass, local paths removed; their
+  screenshots and the run logs stay in `.qa/`, which is not in the repository, so a path to `.qa/` in a report names
+  evidence kept on the build machine.
 
 ## 11. Sources
 

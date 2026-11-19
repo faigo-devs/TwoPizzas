@@ -13,7 +13,6 @@ on:
     paths-ignore:
       - worker/**
       - docs/**
-      - reference/**
       - '**/*.md'
       - .github/workflows/publish-server.yml
 
