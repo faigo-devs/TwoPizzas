@@ -22,6 +22,11 @@ export const Slots: LearnSlot[] = [1, 2].flatMap((iteration) =>
   (['plan', 'daily', 'work', 'inspect', 'retro'] as LearnEvent[]).map((event) => ({ event, iteration: iteration as IterationNumber })),
 );
 
+/**
+ * The closing question of the tour: the retrospective set that asks what the tour showed, not a timebox.
+ */
+export const TourClosing: { slot: LearnSlot; variant: 1 | 2 } = { slot: { event: 'retro', iteration: 2 }, variant: 1 };
+
 export function slotId(slot: LearnSlot): string {
   return `${slot.event}.${slot.iteration}`;
 }
@@ -59,12 +64,12 @@ export function dueSlot(view: PlayerView): LearnSlot | null {
 }
 
 /**
- * The same question for the whole team, taken from the room code, with the choices in a code-derived order.
+ * The same question for the whole team, taken from the room code, with the choices in a code-derived order; a pinned variant overrides the code's pick.
  */
-export function buildQuestion(code: string, framework: PlayerView['framework'], slot: LearnSlot, t: Translate): LearnQuestion | null {
+export function buildQuestion(code: string, framework: PlayerView['framework'], slot: LearnSlot, t: Translate, pin?: 1 | 2): LearnQuestion | null {
   const seed = hash(`${code}|${framework}|${slot.event}`);
   const pinned = profileOf(framework).pinnedWorkQuestion && slot.event === 'work';
-  const variant = pinned ? slot.iteration : ((seed + slot.iteration) % 2) + 1;
+  const variant = pin ?? (pinned ? slot.iteration : ((seed + slot.iteration) % 2) + 1);
   const base = `learn.${framework}.${slot.event}.${variant}`;
   if (!(`${base}.q` in dictionaries.en)) return null;
   const texts = [t(key(`${base}.ok`)), t(key(`${base}.no1`)), t(key(`${base}.no2`))];

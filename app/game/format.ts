@@ -35,6 +35,13 @@ export function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
+/**
+ * The id and name of every item of one theme, in backlog order.
+ */
+export function itemsOfTheme(view: { items: ItemView[] }, theme: string): { id: string; subject: string }[] {
+  return view.items.filter((item) => item.theme === theme).map((item) => ({ id: item.id, subject: item.subject }));
+}
+
 export function named(text: string, item: ItemView): string {
   return `${text}: ${item.id} ${item.subject}`;
 }

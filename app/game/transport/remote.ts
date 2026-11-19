@@ -4,6 +4,7 @@ import { clearSeat, writeSeat, type Seat } from '../session.ts';
 import type { Transport, TransportHandlers } from '../types.ts';
 
 const PingIntervalMs = config.room.pingIntervalMs;
+const AttemptMs = config.room.connectTimeoutMs;
 const PingText = 'ping';
 const GiveUpAfter = 3;
 const BackoffBaseMs = 500;
@@ -100,6 +101,7 @@ export function createRemoteTransport(initial: Seat, handlers: TransportHandlers
   let welcomed = false;
   let stopped = false;
   let pinger: unknown = null;
+  let attemptTimer: unknown = null;
 
   function stopPing(): void {
     if (pinger !== null) env.clearInterval(pinger);
@@ -113,9 +115,15 @@ export function createRemoteTransport(initial: Seat, handlers: TransportHandlers
     }, PingIntervalMs);
   }
 
+  function clearAttempt(): void {
+    if (attemptTimer !== null) env.clearTimeout(attemptTimer);
+    attemptTimer = null;
+  }
+
   function stop(): void {
     stopped = true;
     stopPing();
+    clearAttempt();
     if (timer !== null) env.clearTimeout(timer);
     timer = null;
     const current = socket;
@@ -173,6 +181,22 @@ export function createRemoteTransport(initial: Seat, handlers: TransportHandlers
       return;
     }
     socket = own;
+    let answered = false;
+    attemptTimer = env.setTimeout(() => {
+      attemptTimer = null;
+      if (socket !== own || answered || stopped) return;
+      socket = null;
+      stopPing();
+      own.onopen = null;
+      own.onmessage = null;
+      own.onclose = null;
+      own.onerror = null;
+      try {
+        own.close();
+      } finally {
+        schedule();
+      }
+    }, AttemptMs);
     own.onopen = () => {
       if (socket !== own) return;
       own.send(JSON.stringify(hello()));
@@ -182,6 +206,10 @@ export function createRemoteTransport(initial: Seat, handlers: TransportHandlers
       if (socket !== own) return;
       const message = parseIncoming(event.data);
       if (message === null) return;
+      if (message.t !== 'error') {
+        answered = true;
+        clearAttempt();
+      }
       if (message.t === 'welcome') {
         seat = { code: seat.code, playerId: message.playerId, token: message.token ?? seat.token };
         env.writeSeat(seat);
@@ -205,6 +233,7 @@ export function createRemoteTransport(initial: Seat, handlers: TransportHandlers
       if (socket !== own || stopped) return;
       socket = null;
       stopPing();
+      clearAttempt();
       if (event.code === CloseCodes.replaced) {
         stop();
         handlers.onStatus('elsewhere');

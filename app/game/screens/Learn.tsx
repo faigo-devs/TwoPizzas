@@ -9,17 +9,18 @@ export interface QuickCheckProps {
   view: PlayerView;
   t: Translate;
   slot?: LearnSlot;
+  variant?: 1 | 2;
   onDone?: () => void;
 }
 
 /**
  * The check question for the event that just ended; absent when none is due or the player skipped it.
  */
-export function QuickCheck({ view, t, slot, onDone }: QuickCheckProps) {
+export function QuickCheck({ view, t, slot, variant, onDone }: QuickCheckProps) {
   const state = useAppState();
   const due = slot ?? (state.mode === 'tour' ? null : dueSlot(view));
   if (due === null) return null;
-  const question = buildQuestion(view.code, view.framework, due, t);
+  const question = buildQuestion(view.code, view.framework, due, t, variant);
   const known = state.learn[slotId(due)];
   if (question === null || known === -1) return null;
   const picked = known === undefined ? null : known;

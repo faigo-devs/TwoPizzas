@@ -136,15 +136,15 @@ export function helpProposals(s: RoomState, state: RetroHelpState): HelpProposal
   if (!facts.kanban && facts.goalMet === true) add('went_well.goal', 'went_well', { theme: facts.theme });
   if (facts.escaped === 0 && facts.accepted > 0) add('went_well.quality', 'went_well', { accepted: facts.accepted });
   if (answers.wait === 'review' || facts.maxReviewWaitMs >= config.review.waitThresholdMs) {
-    add('slowed.review', 'slowed_us', { waitSec: sec(facts.maxReviewWaitMs) });
+    if (facts.maxReviewWaitMs > 0) add('slowed.review', 'slowed_us', { waitSec: sec(facts.maxReviewWaitMs) });
     add('try.review', 'try', { limitSec: sec(config.agreements.reviewWaitMs) });
   }
   if (answers.wait === 'pair' || (answers.wait === undefined && facts.pairWaitMs > 0)) {
-    add('slowed.pair', 'slowed_us', { waitSec: sec(facts.pairWaitMs) });
+    if (facts.pairWaitMs > 0) add('slowed.pair', 'slowed_us', { waitSec: sec(facts.pairWaitMs) });
     add('try.pair', 'try');
   }
   if (answers.wait === 'info' || (answers.wait === undefined && facts.blockedUnhelped > 0)) {
-    add('slowed.info', 'slowed_us', { count: facts.blockedUnhelped });
+    if (facts.blockedUnhelped > 0) add('slowed.info', 'slowed_us', { count: facts.blockedUnhelped });
     add('try.info', 'try');
   }
   if (answers.overload === 'yes' || (answers.overload === undefined && wipIsHigh(facts))) {
@@ -153,11 +153,11 @@ export function helpProposals(s: RoomState, state: RetroHelpState): HelpProposal
     add(facts.kanban ? 'try.limits' : 'try.wip', 'try', { suggested });
   }
   if (facts.unfinished > 0 || answers.unfinished !== undefined) {
-    add('slowed.unfinished', 'slowed_us', { count: facts.unfinished });
+    if (facts.unfinished > 0) add('slowed.unfinished', 'slowed_us', { count: facts.unfinished });
     add(facts.kanban ? 'try.finish_first' : 'try.estimates', 'try');
   }
   if (facts.escaped > 0 || answers.defects !== undefined) {
-    add('slowed.defects', 'slowed_us', { count: facts.escaped });
+    if (facts.escaped > 0) add('slowed.defects', 'slowed_us', { count: facts.escaped });
     add('try.review_care', 'try');
   }
   if (answers.limits === 'too_tight') add('slowed.limits', 'slowed_us', { limit: facts.inProgressLimit ?? 0 });

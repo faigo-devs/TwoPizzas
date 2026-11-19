@@ -306,6 +306,26 @@ test('round 2 enforces both limits; a refusal changes nothing and the view expla
   assert.equal(item(room, s2).status, 'review');
 });
 
+test('Request changes puts an item back In Progress above the limit; it is not a start and new starts stay refused', () => {
+  const room = secondRound({ seed: 1234505, pick: solos(3), limits: { inProgress: 1, review: 1 }, checks: true });
+  const [s1, s2, s3] = room.state.items.filter((own) => own.status === 'todo').map((own) => own.id);
+  assert.ok(s1 !== undefined && s2 !== undefined && s3 !== undefined);
+  act(room, 'p1', { type: 'item.take', itemId: s1 });
+  work(room, 'p1', s1);
+  act(room, 'p2', { type: 'item.take', itemId: s2 });
+  assert.equal(kanbanViewOf(room.state, 'p3', room.now).kanban?.inProgress, 1);
+  verdict(room, 'p3', s1, 'changes');
+  assert.equal(item(room, s1).status, 'doing');
+  assert.equal(item(room, s1).changesRequested, 1);
+  const over = kanbanViewOf(room.state, 'p3', room.now).kanban;
+  assert.equal(over?.inProgress, 2);
+  assert.equal(over?.limits.inProgress, 1);
+  assert.equal(over?.startBlockedByLimit, true);
+  assert.equal(code(tryAct(room, 'p3', { type: 'item.take', itemId: s3 })), 'not_allowed');
+  assert.equal(item(room, s3).status, 'todo');
+  assert.equal(code(tryAct(room, 'p1', { type: 'item.open', itemId: s1, mode: 'work' })), 'ok');
+});
+
 test('a null limit leaves its column open and a pair joining a waiting item is never a start', () => {
   const room = secondRound({
     seed: 1234506,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { config } from '../../../core/index.ts';
+import { config, sessionAgenda } from '../../../core/index.ts';
 import type { PlayerView } from '../../../core/index.ts';
 import type { Translate } from '../../i18n/index.ts';
 import { Button } from '../../ui/Button.tsx';
@@ -14,6 +14,32 @@ export interface LobbyProps {
   view: PlayerView;
   state: AppState;
   t: Translate;
+}
+
+function Agenda({ view, t }: { view: PlayerView; t: Translate }) {
+  const { entries, totalMinutes } = sessionAgenda();
+  const iteration = (n: number) => t(key(`iteration.${view.framework}`), { n });
+  return (
+    <details class="lg-obs lg-obs--fold lg-agenda">
+      <summary>{t('lobby.agenda.title')}</summary>
+      <p class="lg-muted">{t('lobby.agenda.note')}</p>
+      <p class="lg-muted lg-agenda__legend">{t('lobby.agenda.legend', { first: iteration(1), second: iteration(2) })}</p>
+      <ol class="lg-agenda__list">
+        {entries.map((entry) => {
+          const name = t(key(`phase.${view.framework}.${entry.event}.name`));
+          const same = entry.minutes.every((minutes) => minutes === entry.minutes[0]);
+          return (
+            <li key={`${entry.event}-${entry.half ?? 0}`}>
+              <span>{entry.half === null ? name : t('lobby.agenda.half', { name, n: entry.half })}</span>
+              <span class="lg-mono">{t('lobby.agenda.row', { minutes: same ? String(entry.minutes[0]) : entry.minutes.join(' / ') })}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <p class="lg-agenda__total">{t('lobby.agenda.total', { minutes: totalMinutes })}</p>
+      <p class="lg-muted">{t('lobby.agenda.talk')}</p>
+    </details>
+  );
 }
 
 /**
@@ -93,6 +119,7 @@ export function Lobby({ view, state, t }: LobbyProps) {
               </Button>
             </div>
           ) : null}
+          <Agenda view={view} t={t} />
         </Panel>
         <Panel title={t('lobby.players', { count: seated, max: config.players.max })} icon="users" class="lg-lobby__players">
           <PlayerList

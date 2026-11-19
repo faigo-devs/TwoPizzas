@@ -1,5 +1,6 @@
 import { cx } from './cx.ts';
 import { Icon } from './Icon.tsx';
+import { timerAria } from './timer-aria.ts';
 
 export interface TimerProps {
   label: string;
@@ -21,7 +22,7 @@ export function Timer({ label, time, fraction, hard, overtime = false, hardLabel
   const width = overtime ? 100 : Math.max(0, Math.min(1, fraction)) * 100;
   const state = overtime ? overtimeLabel : last ? lastFifthLabel : hard ? hardLabel : softLabel;
   return (
-    <div class={cx('lg-timer', hard ? 'lg-timer--hard' : 'lg-timer--soft', last && 'is-last', overtime && 'is-over')} role="timer" aria-label={label}>
+    <div class={cx('lg-timer', hard ? 'lg-timer--hard' : 'lg-timer--soft', last && 'is-last', overtime && 'is-over')} {...timerAria} aria-label={label}>
       <div class="lg-timer__row">
         <span class="lg-timer__icon">
           <Icon name={overtime ? 'warning' : hard ? 'lock' : 'clock'} size={16} />

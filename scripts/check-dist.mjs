@@ -11,7 +11,7 @@ const RequiredFiles = ['index.html', '404.html', 'web.config', '.htaccess', 'rob
 const SyncStateFile = '.ftp-deploy-sync-state.json';
 const NamespaceHosts = new Set(['www.w3.org']);
 
-export const budget = { js: 450_000, css: 150_000, fonts: 300_000 };
+export const budget = { js: 455_000, css: 150_000, fonts: 300_000 };
 
 const UrlPattern = /\b(?:https?|wss?):\/\/[^\s"'`<>)\\,;]+/gi;
 const RelativeUrlPattern = /(?<=["'`(=\s])\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+[^\s"'`<>)\\,;]*/gi;

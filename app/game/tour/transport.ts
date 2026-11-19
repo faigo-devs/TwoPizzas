@@ -2,7 +2,7 @@ import { machine } from '../../../core/index.ts';
 import type { ClientAction, Framework, RoomState } from '../../../core/index.ts';
 import type { Key } from '../../i18n/index.ts';
 import type { Transport, TransportHandlers } from '../types.ts';
-import { TourYou, buildScene, type SceneId, type TourSays } from './script.ts';
+import { TourYou, buildScene, type OwnNote, type SceneId, type TourSays } from './script.ts';
 
 /**
  * Runs the tour's prepared situations on the engine in the browser: one situation at a time, no teammate moves of its own, nothing sent anywhere.
@@ -34,7 +34,7 @@ export function createTourTransport(framework: Framework, handlers: TransportHan
     );
   }
 
-  let ownNote: string | null = null;
+  let ownNote: OwnNote | null = null;
 
   return {
     kind: 'tour',
@@ -51,7 +51,7 @@ export function createTourTransport(framework: Framework, handlers: TransportHan
     },
     send(action: ClientAction) {
       if (state === null) return;
-      if (action.type === 'retro.note_add') ownNote = action.text;
+      if (action.type === 'retro.note_add') ownNote = { column: action.column, text: action.text };
       const result = machine.reduce(state, { ...action, playerId: TourYou, now: now() });
       if (!result.ok) {
         handlers.onError(result.code, false);

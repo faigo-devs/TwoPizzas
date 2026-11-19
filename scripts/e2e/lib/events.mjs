@@ -1,7 +1,50 @@
+import { dictionaries } from '../../../app/i18n/index.ts';
 import { sleep } from './session-run.mjs';
 
 const Cards = [1, 2, 3, 5, 8, 13];
 const same = (values) => values.every((value) => value === values[0]);
+
+/**
+ * Answers the check question of the event that just ended on one page and asserts the verdict, the right answer and the reason.
+ */
+export async function answerCheckQuestion(run, player, event) {
+  const prefix = `learn.${player.view.framework}.${event}.`;
+  const outcome = await player.exec(
+    `
+    const section = page.locator('.lg-check').first();
+    await section.waitFor({ state: 'visible', timeout: 15000 });
+    const buttons = section.locator('.lg-check__choices button:not(.lg-check__skip)');
+    const labels = await buttons.allTextContents();
+    await buttons.nth(A.index).click({ timeout: 8000 });
+    const result = page.locator('.lg-check__result');
+    await result.waitFor({ state: 'visible', timeout: 10000 });
+    return {
+      picked: labels[A.index].trim(),
+      verdict: (await result.locator('.lg-check__verdict').innerText()).trim(),
+      why: (await result.locator('.lg-check__why').innerText()).trim(),
+      right: (await result.locator('li.is-right').allInnerTexts()).map((text) => text.trim()),
+      wrong: await result.locator('li.is-wrong').count(),
+    };
+  `,
+    { index: 0 },
+  );
+  const t = player.t;
+  const correct = outcome.right.length === 1 && outcome.right[0] === outcome.picked;
+  const expectedStart = `${t(correct ? 'learn.right' : 'learn.wrong')}.`;
+  run.check(outcome.right.length === 1, 'the check question marks exactly one right answer', { player, expected: '1 right choice', found: String(outcome.right.length) });
+  run.check(outcome.verdict.startsWith(expectedStart), 'the check question shows its verdict', { player, expected: expectedStart, found: outcome.verdict });
+  run.check(correct ? outcome.wrong === 0 : outcome.wrong === 1, 'a wrong pick is marked and a right pick is not', { player, expected: correct ? '0 wrong marks' : '1 wrong mark', found: String(outcome.wrong) });
+  if (!correct) {
+    const line = t('learn.answer', { answer: outcome.right[0] });
+    run.check(outcome.verdict.includes(line), 'a wrong pick is told the right answer', { player, expected: line, found: outcome.verdict });
+  }
+  const reasons = Object.entries(dictionaries[player.lang])
+    .filter(([key]) => key.startsWith(prefix) && key.endsWith('.why'))
+    .map(([, text]) => text.replaceAll('‑', '-'));
+  const shown = outcome.why.replaceAll('‑', '-');
+  run.check(shown.length > 0 && reasons.includes(shown), 'the check question shows the reason from the dictionary', { player, expected: `one of the ${prefix}*.why texts`, found: outcome.why });
+  run.counters.bump('check question answered');
+}
 
 /**
  * The facilitator opens the phase that shows its card; nobody else has the control.

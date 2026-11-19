@@ -134,6 +134,20 @@ test('goal votes pick the Sprint Goal and the facilitator confirms it', () => {
   assert.equal(room.state.phase.kind === 'plan' ? room.state.phase.step : '', 'estimate');
 });
 
+test('the goal step gives the client every item of each offered theme, in backlog order', () => {
+  const room = startedRoom(4, 6060606);
+  begin(room);
+  const view = scrumViewOf(room.state, 'p1', room.state.now);
+  assert.equal(view.planning?.goalOptions.length, 2);
+  for (const theme of view.planning?.goalOptions ?? []) {
+    const shown = view.items.filter((item) => item.theme === theme);
+    const own = room.state.items.filter((item) => item.theme === theme);
+    assert.ok(shown.length > 0);
+    assert.deepEqual(shown.map((item) => item.id), own.map((item) => item.id));
+    assert.ok(shown.every((item) => item.subject.length > 0));
+  }
+});
+
 test('planning poker hides votes until all have voted or the facilitator reveals, allows one re-vote', () => {
   const room = startedRoom(4, 7070707);
   begin(room);
@@ -318,4 +332,14 @@ test('controls tell each player what they may do right now', () => {
   assert.deepEqual(viewFor(room.state, 'p1', room.now).controls.filter((own) => own !== 'pause' && own !== 'resume'), ['advance']);
   assert.deepEqual(viewFor(room.state, 'p1', room.now).script, { event: 'plan', step: 'commit', index: 4, total: 4 });
   assert.equal(viewFor(room.state, 'p2', room.now).script, null);
+});
+
+test('the planning view carries the capacity: present Developers and the minutes of work in the Sprint', () => {
+  const room = startedRoom(4, 4242424);
+  begin(room);
+  const expectedMinutes = (2 * config.timeboxMs.workHalf) / 60_000;
+  assert.deepEqual(scrumViewOf(room.state, 'p1', room.now).planning?.capacity, { developers: 4, workMinutes: expectedMinutes });
+  assert.equal(expectedMinutes, 8);
+  server(room, { type: 'server.disconnected', playerId: 'p4', now: room.now });
+  assert.deepEqual(scrumViewOf(room.state, 'p1', room.now).planning?.capacity, { developers: 3, workMinutes: expectedMinutes });
 });

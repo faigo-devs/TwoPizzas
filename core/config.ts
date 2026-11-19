@@ -26,6 +26,7 @@ export const config = deepFreeze({
     createPerMinute: 5,
     reconnectGraceMs: 60_000,
     helloTimeoutMs: 5000,
+    connectTimeoutMs: 10_000,
     unjoinedSocketsMax: 8,
     pingIntervalMs: 30_000,
     silenceMs: 90_000,

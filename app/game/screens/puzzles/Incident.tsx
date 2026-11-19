@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { IncidentFullPart, IncidentWorkerPart } from '../../../../core/index.ts';
 import { ReadingsRules } from '../../../ui/Puzzle.tsx';
+import { loadDraft, saveDraft } from '../../drafts.ts';
 import { levelText, token, ruleText, type BodyProps } from './tokens.ts';
 
 export interface IncidentBodyProps extends BodyProps {
@@ -11,10 +12,15 @@ export interface IncidentBodyProps extends BodyProps {
 /**
  * Incident: the readings, the numbered rules, and the action the first fitting rule gives.
  */
-export function IncidentBody({ part, pair, t, readOnly, submission, onResponse }: IncidentBodyProps) {
-  const [action, setAction] = useState<string | null>(null);
+export function IncidentBody({ itemId, part, pair, t, readOnly, submission, onResponse }: IncidentBodyProps) {
+  const [action, setAction] = useState<string | null>(() => {
+    const draft = loadDraft(itemId, 'incident');
+    return draft !== null && draft.action !== null && part.options.includes(draft.action) ? draft.action : null;
+  });
   useEffect(() => {
-    if (!readOnly) onResponse(action === null ? null : { kind: 'incident', action });
+    if (readOnly) return;
+    saveDraft(itemId, { kind: 'incident', action });
+    onResponse(action === null ? null : { kind: 'incident', action });
   }, [action]);
   const chosen = readOnly && submission?.kind === 'incident' ? submission.action : action ?? undefined;
   const label = (value: string) => token(t, 'action', value);

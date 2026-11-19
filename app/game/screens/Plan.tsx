@@ -6,7 +6,7 @@ import { Panel } from '../../ui/Hero.tsx';
 import { GoalOption, PokerCard } from '../../ui/Poker.tsx';
 import { WorkItemCard } from '../../ui/WorkItemCard.tsx';
 import { act } from '../controller.ts';
-import { facilitatorRoleDef, itemLabels, lowerFirst, key, markerOf, named, playerName, statusText, themeOf, titleIdOf } from '../format.ts';
+import { facilitatorRoleDef, itemLabels, itemsOfTheme, lowerFirst, key, markerOf, named, playerName, statusText, themeOf, titleIdOf } from '../format.ts';
 import { ScriptBox, stepTitle } from './Parts.tsx';
 
 export interface PlanProps {
@@ -55,6 +55,7 @@ function GoalStep({ view, t }: { view: ScrumPlayerView; t: Translate }) {
             description={`${t('goal.optionDetail')} ${t('goal.votes', { count: planning.goalVotes[theme] ?? 0 })}`}
             bonus={t('goal.bonus', { bonus: config.goal.bonus })}
             checked={planning.myGoalVote === theme}
+            items={itemsOfTheme(view, theme)}
             onChange={() => act({ type: 'plan.goal_vote', theme })}
           />
         ))}
@@ -71,7 +72,7 @@ function GoalStep({ view, t }: { view: ScrumPlayerView; t: Translate }) {
   );
 }
 
-function Totals({ view, t }: { view: ScrumPlayerView; t: Translate }) {
+function Totals({ view, t, capacity = false }: { view: ScrumPlayerView; t: Translate; capacity?: boolean }) {
   const planning = view.planning;
   if (planning === null) return null;
   return (
@@ -80,6 +81,9 @@ function Totals({ view, t }: { view: ScrumPlayerView; t: Translate }) {
         <span>{t('poker.sum')}</span>
         <strong>{planning.totalEstimate}</strong>
       </div>
+      {capacity ? (
+        <p class="lg-muted lg-sum-note">{t('commit.capacity', { developers: planning.capacity.developers, minutes: planning.capacity.workMinutes })}</p>
+      ) : null}
       {planning.previousVelocity !== null ? <p class="lg-muted lg-sum-note">{t('poker.velocity', { velocity: planning.previousVelocity })}</p> : null}
     </>
   );
@@ -197,7 +201,7 @@ function CommitStep({ view, t }: { view: ScrumPlayerView; t: Translate }) {
     <div class="lg-stack lg-stack--lg">
       <Panel title={t('commit.title')} icon="flag">
         <p class="lg-muted">{t('commit.hint')}</p>
-        <Totals view={view} t={t} />
+        <Totals view={view} t={t} capacity />
         {pulled.some((item) => item.estimate === null) ? <p class="lg-muted">{t('commit.unestimated')}</p> : null}
         {isFacilitator ? (
           <div class="lg-stack">

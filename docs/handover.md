@@ -134,7 +134,7 @@ Stare și decizii, ca o sesiune nouă să poată continua fără istoricul conve
 - Nimic nu este publicat. Pe www.faigo.ro rulează site-ul firmei, din repo-ul lui.
 - Primul push în `faigo-devs/TwoPizzas` este făcut (istoria locală unită cu commit-ul inițial creat de GitHub).
 
-## Progres și sarcini rămase (19 noiembrie, 17:05)
+## Progres și sarcini rămase (19 noiembrie, 18:40)
 
 Ce există și e verificat: jocul Scrum și Kanban cap-coadă (motor, server, client); turul ghidat de 14 pași (15 în
 Kanban); pagina de start în două zone; doar tema închisă; textele în română „tu” și în engleză; micro-learning (un
@@ -148,40 +148,37 @@ Notele evaluatorilor (pragul: cel puțin 9/10 la fiecare; rapoartele în `.qa/re
 
 | Evaluare | Ultima notă | Ce mai lipsește |
 |---|---|---|
-| Fidelitate față de ghiduri | **9** (a cincea trecere) | pragul e atins; retușurile mici sunt făcute și verificate |
-| Securitate | 8; 9 după testul pe serverul real | testul pe staging (proprietarul) |
-| GDPR | **9** pe cod și text, 8,5 per total (a patra trecere) | pe cod și text nimic nu mai blochează 9; per total: lista proprietarului (contractele cu furnizorii, răspunsul furnizorului despre copii, registrul art. 30, avocatul, antetele reale) | reparat ce cerea evaluatorul pentru 9 în cod și text (IP la încărcarea paginii, portabilitate, copia clauzelor, lista lunară sau generală); restul: lista din afara codului, avocatul, verificarea pe platformă |
-| Limbă: română / engleză | 8,9 / 9 (a patra trecere) | reparat ce cerea evaluatorul pentru 9 (semnalul „Greșeala tipică:”, glosa timebox); majuscula după „Sprint Goal:” e reparată |
+| Fidelitate față de ghiduri | **9** (evaluarea finală, după grilă) | niciun blocaj, nicio majoră; tot conținutul nou e fidel; 7 minore opționale pe lista de după versiunea 1, cu text în `.qa/reviews/fidelity-2026-11-19-final.md` |
+| Securitate | **9** pe cod, 9 per total provizoriu (evaluarea finală, după grilă) | niciun blocaj, nicio majoră; 7 minore pe lista de după versiunea 1 (limita pe IPv6 /64, închiderea socket-ului după abuz repetat, testul de scurgeri mai strict, `persist-credentials` în CI, `X-Content-Type-Options` pe răspunsurile JSON); verificările la publicare rămân ale proprietarului |
+| GDPR | **9** pe cod și text, 8 per total (evaluarea finală, după grilă) | pe cod și text nimic nu blochează; per total singura majoră e a proprietarului: contractele cu furnizorii, răspunsul scris al furnizorului despre copiile de recuperare și locul datelor în UE (textele `privacy.p3` și `privacy.p6` le afirmă); cu ele, 9 |
+| Limbă: română / engleză | **9 / 9** după reparația singurei majore (evaluarea finală, după grilă: 8,5 / 8,7 înainte) | `tour.right.text` legase „gata” de Request changes; reparat cu textul evaluatorului; minorele (formele cu „-ul”, „ședințe” față de „întâlniri”, câteva titluri) pe lista de după versiunea 1, cu textul exact în `.qa/reviews/language-2026-11-19-final.md` |
 | Design / utilizare | 8,9 / 8,9 (a cincea trecere) | singurul blocaj: pliul „Ce s-a întâmplat în …” nu avea săgeata de deschidere (reparat de orchestrator în `app/styles/polish.css`); confirmarea vine în ultima trecere |
-| Calitatea codului / mentenanță / arhitectură | 8 / 7 / 8 (prima trecere) | tot ce bloca 9 e făcut și verificat: întărirea motorului și a serverului, testele pentru client (418 la rădăcină, CI rulează `test:all`), granița Scrum/Kanban (57 de ramuri pe framework → 7 justificate, vederea pe tipuri separate, decizii D-001…D-101); urmează a doua trecere |
+| Calitatea codului / mentenanță / arhitectură | **9** / 8 / **9** (a doua și ultima trecere, după grilă) | singura majoră: arborele necommis (53 de fișiere, 12 noi); se închide cu commitul de după probe; minorele (chei de text dinamice fără verificare, fără error boundary, ordinea din `load()`, `plan.pull` dublat, D-id-uri citate doar în 7 teste) pe lista de după versiunea 1 |
 | Trei utilizatori (începător, facilitator, developer sceptic) | după ce interfața e gata | nu condiționează versiunea 1 (decizia 26); înlocuiesc testul simulat, care a dat 7 |
 
-În lucru acum (19 noiembrie, 17:05), doi agenți: a cincea evaluare de design și utilizare, și pachetul care adună
-diferențele dintre Scrum și Kanban în regulile fiecărui framework (granița din evaluarea de cod). Verificate până acum:
-418 teste la rădăcină, 115 de server, 69 ale verificării build-ului, typecheck, build și check; probele jocului întreg
-trec (Scrum 4684 verificări, rulată singură, Kanban 6094, turul 125). Eșecurile Scrum din după-amiază veneau din
-lucrul în paralel pe server și din încărcarea calculatorului: rulată singură, proba trece. `worker/.dev.vars` (doar
-`DO_JURISDICTION=local`, fără secret) intră în commit intenționat.
+În lucru acum (19 noiembrie, 23:20): probele jocului întreg trec toate trei după ultimele reparații (tur; Kanban 8041
+verificări; Scrum 7287 verificări; 0 eșecuri). Runda finală până acum: securitate 9 pe cod, GDPR 9 pe cod și text, limbă
+9 / 9 (după reparația singurei majore), fidelitate 9, cod 9 / mentenanță 8 / arhitectură 9 (mentenanța urcă la 9 după commit).
+După probe: comanda de commit (cu normalizarea finalurilor de rând), apoi **orchestratorul așteaptă confirmarea
+proprietarului că a făcut commitul** înainte să meargă mai departe (cererea proprietarului, 19 noiembrie, 22:38).
 
-Sarcini rămase, în ordine (regula de oprire: decizia 27):
-1. Gata: granița Scrum/Kanban (verificată la 17:45), a cincea evaluare de design (8,9 / 8,9; singurul blocaj e reparat),
-   reparațiile după a patra evaluare de design, întărirea motorului și a serverului, testele pentru client,
-   confirmarea GDPR (9 pe cod și text).
-2. Commit local de siguranță (proprietarul, 5 min; comanda e în conversație, fără push).
-3. În lucru: probele jocului întreg după graniță (orchestratorul, 1 h, rulate fără alți agenți pe calculator).
-4. Cei trei utilizatori (1 h), triajul criticilor, o rundă de reparații doar pentru ce e real.
-5. Verificarea listei de cerințe: gata (raport `.qa/reviews/requirements-2026-11-19.md`): 199 de cerințe, 181 cu
-   dovezi, 11 parțiale, 2 lipsă (cei trei utilizatori), 5 ale proprietarului. Reparate de orchestrator: textul din spec
-   (camera goală 15 minute, numărul deciziilor) și excepția pentru adresa publică în `CLAUDE.md`. De făcut, un pachet
-   (1–1,5 h, după probele în curs): capacitatea în Sprint Planning (decizia 5), redenumirea pachetelor `lgtm*` (decizia
-   13), `sharp` justificat sau scos, dovezi tari pentru contrast, anunțul ceasului, „Request changes” peste limita WIP și
-   o întrebare de verificare răspunsă în proba de joc întreg.
-6. Runda finală de confirmare, cel mult două treceri pe evaluator: cod, securitate (după graniță, fiindcă atinge
-   vederile), limbă (cheile noi), fidelitate, design dacă s-a schimbat; probele jocului întreg.
-7. Final: `reference/piesa-lipsa/` șters, rapoartele mutate din `.qa/` în `docs/reviews/`, comanda de commit și push
+Sarcini rămase, în ordine (regula de oprire: decizia 27; grila: decizia 28):
+1. Gata și verificate: granița Scrum/Kanban, întărirea motorului și a serverului, testele pentru client, reparațiile
+   după a patra și a cincea evaluare de design, confirmarea GDPR (9 pe cod și text), pachetul din verificarea
+   cerințelor (D-102–D-105; raport `.qa/reviews/requirements-2026-11-19.md`: 199 de cerințe, 181 cu dovezi la prima
+   trecere), cei trei utilizatori și reparațiile după începător (D-106–D-108). Probele jocului întreg trec (18:35).
+   Commit local de siguranță la 18:13, fără push.
+2. Reparațiile după facilitator și după developer: gata (D-109–D-116).
+3. Probele tur, Kanban și Scrum trec (19 noiembrie, 23:20). În lucru: comanda de commit (cu `.gitattributes` și
+   normalizarea finalurilor de rând, D-117) și așteptarea confirmării proprietarului.
+4. Runda finală, după grila din decizia 28: gata securitate (9 pe cod), GDPR (9 pe cod și text), limbă (9 / 9),
+   fidelitate (9), cod (9 / 8 / 9; mentenanța urcă la 9 după commit); rămas designul, după confirmarea commitului
+   (30 min), apoi reparațiile doar pentru blocaje și majore, dacă apar.
+5. A doua verificare a listei de cerințe, scurtă: doar cele 11 parțiale de la prima trecere (30 min).
+6. Final: `reference/piesa-lipsa/` șters, rapoartele mutate din `.qa/` în `docs/reviews/`, comanda de commit și push
    (cu `worker/.dev.vars`), reclonarea în `repos/TwoPizzas` (30 min).
 
-Estimare: 7–10 ore de lucru ale agenților, cu pauzele de la limitele de credite.
+Estimare: 2–3 ore de lucru ale agenților, cu pauzele de la limitele de credite.
 
 Pe lista proprietarului (în afara codului): subdomeniul `twopizzas.faigo.ro` pe gazdă și în Cloudflare; secretele și
 variabilele din repo (`SITE_URL`, `SITE_HOSTS`, `FTP_REMOTE_DIR` etc.); testul pe serverul de staging
@@ -296,6 +293,14 @@ Stabilite într-o sesiune de întrebări și confirmate de el la final.
     decide. Se repară doar ce spune evaluatorul că blochează 9; „ar fi frumos” trece pe lista de după versiunea 1.
     Securitatea și GDPR ating 9 întreg doar după pașii proprietarului (testul pe staging, avocatul, contractele);
     pentru „verificat local” contează 9 pe partea de cod, restul rămâne pe lista proprietarului.
+28. **Grila de note, aceeași pentru toți evaluatorii** (propusă de orchestrator și aprobată de proprietar pe 19
+    noiembrie, „deocamdată”: o va revedea; textul întreg în `docs/spec.md`, secțiunea 9). Blocaj: un începător nu poate termina sesiunea, date,
+    securitate sau lege expuse, jocul învață ceva ce ghidurile contrazic, o verificare e stricată. Major: încurcă sau
+    încetinește mulți începători pe drumul principal, o cerință e făcută doar parțial, o regulă a domeniului e încălcată
+    pe unele ecrane, lățimi sau într-o limbă, sau face probabile defectele. Minor: restul. Nota: 10 fără nicio
+    constatare; 9 fără blocaj și fără major, toate cerințele domeniului cu dovezi; 8 fără blocaj, 1–3 majore; 7 mai multe
+    majore; 5–6 cel puțin un blocaj; 3–4 mai multe blocaje; 1–2 inutilizabil, nesigur sau ilegal. Înainte de versiunea
+    1 se repară doar blocajele și majorele. Runda finală notează toți evaluatorii după grila asta.
 
 ## Ce decurge tehnic din decizii
 - Clasamentul public cere ca răspunsurile să fie verificate de server: motorul rulează în Worker, iar pagina nu primește
@@ -377,6 +382,27 @@ Făcută de un evaluator independent pe toate textele și pe regulile jocului, f
    deciziile Developers; Daily Scrum are loc zilnic în viața reală.
 9. **Kanban:** se adaugă cele trei practici, definirea fluxului de către echipă și Service Level Expectation; textele
    metricilor urmează definițiile ghidului.
+
+## După versiunea 1 (minore notate de evaluatori, nereparate intenționat, decizia 27)
+- Securitate (`.qa/reviews/security-2026-11-19-final.md`): limitele pe adresă cu cheie IPv6 /64; închiderea unui
+  socket după încălcări repetate ale ritmului; testul de scurgeri din joc aleator mai strict (rezultatul pe element,
+  metricile de dinainte de dezvăluire); `persist-credentials: false` și urmărirea dependențelor în CI;
+  `X-Content-Type-Options` pe răspunsurile JSON ale serverului.
+- Design (`.qa/reviews/design-usability-2026-11-19-fifth.md`): Pauza și Ieșirea pe desktop arată ca text simplu;
+  „Ia” e scurt în română; spațiere sub „Greșeala tipică” la retrospectivă.
+- Utilizatori (`.qa/reviews/user-triage-2026-11-19.md`): „Înainte” apare doar în bara de jos după sarcină; backlogul
+  grupat pe teme; link de cameră pe lângă cod; durata rundelor Kanban, de urmărit în sesiunea cu oameni.
+- Mărimea paginii: JS 451 kB față de bugetul de 455 kB (D-116); împărțirea pachetului JS.
+- Fidelitate (`.qa/reviews/fidelity-2026-11-19-final.md`, cu text EN și RO): nota din agenda lobby-ului pentru Kanban;
+  regula verificării în turul Scrum; glosele Sprint Backlog și Increment; „oricine poate selecta”; cine alege Sprint
+  Goal pe cardul de planificare; „ar trebui” la practicile Kanban; exemplul de acțiune din turul Scrum.
+- Cod (`.qa/reviews/code-architecture-2026-11-19-final.md`): `key()` fără verificare pentru 82 de chei dinamice; un
+  error boundary în client și `try/catch` în transporturile locale; `RoomHandler.load` marchează încărcat înainte de
+  citire; `plan.pull`/`plan.unpull` scrise de două ori; bugetele de timp din benchmark; ciornele șterse și la
+  înlocuirea transportului; D-id-uri în mai multe teste.
+- Limbă (`.qa/reviews/language-2026-11-19-final.md`, cu textul exact): formele cu „-ul” în câteva chei, „ședințele” în
+  `kanban.metric.age.text`, `tour.limit.title`, `tour.showTask`, `lobby.agenda.note` în română, „datelor date de tine” în
+  `privacy.p7`, două formulări redundante în engleză.
 
 ## Rămase pe lista proprietarului
 - Redenumirea folderului local, doar între sesiuni (pe GitHub repo-ul este deja `faigo-devs/TwoPizzas`).

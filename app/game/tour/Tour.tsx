@@ -6,6 +6,7 @@ import { Icon } from '../../ui/Icon.tsx';
 import { tourFinish, tourGo, tourRefresh } from '../controller.ts';
 import { key } from '../format.ts';
 import { profileOf } from '../framework.ts';
+import { TourClosing } from '../learn.ts';
 import { Screen } from '../Screen.tsx';
 import { QuickCheck } from '../screens/Learn.tsx';
 import type { AppState } from '../store.ts';
@@ -42,7 +43,7 @@ function Closing({ state, view, t, last }: { state: AppState; view: PlayerView; 
       </h2>
       <p>{t('tour.end.text')}</p>
       <p>{t('start.how')}</p>
-      <QuickCheck view={view} t={t} slot={{ event: 'retro', iteration: 2 }} onDone={() => document.getElementById('lg-coach-title')?.focus()} />
+      <QuickCheck view={view} t={t} slot={TourClosing.slot} variant={TourClosing.variant} onDone={() => document.getElementById('lg-coach-title')?.focus()} />
       <div class="lg-cluster">
         <Button variant="tour" size="lg" icon="flag" onClick={tourFinish}>
           {t('summary.again')}

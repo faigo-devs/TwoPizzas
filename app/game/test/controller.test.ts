@@ -180,6 +180,12 @@ describe('creating a room', () => {
     await createRoom('scrum');
     assert.equal(store.get().startError, 'rate_limited');
     assert.equal(store.get().busy, null);
+    respond(null, false);
+    await createRoom('scrum');
+    assert.equal(store.get().startError, 'network');
+    respond({ error: 'room_full' }, false);
+    await createRoom('scrum');
+    assert.equal(store.get().startError, 'room_full');
     respond({ code: 'bad' });
     await createRoom('scrum');
     assert.equal(store.get().startError, 'bad_request');

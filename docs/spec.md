@@ -307,6 +307,21 @@ at 16, 32 and 48 pixels).
   decisions and this contract) has its evidence, checked by an independent reviewer, and every reviewer gives at
   least 9. Each reviewer gets at most two more passes after 19 November 2026; what stays under 9 goes to the owner
   with its list. Only what a reviewer says blocks 9 is fixed; the rest waits for after version 1.
+- Review scale, the same for every reviewer (proposed by the orchestrator and approved by the owner on 19 November
+  2026, to be revisited later). A finding is a **blocker** when a beginner cannot finish a session, when data, security or the law is exposed,
+  when the game teaches something the guides contradict, or when a check is broken; **major** when it confuses or slows
+  many beginners on the main path, leaves a requirement partly met, breaks a rule of the domain on some screens, widths
+  or one language, or makes defects likely; **minor** otherwise (polish, taste, small inconsistency). Scores: 10, no
+  finding at all; 9, no blocker and no major, only minors, and every requirement of the domain has evidence; 8, no
+  blocker and one to three majors; 7, no blocker and more majors or one systemic major; 5–6, at least one blocker;
+  3–4, several blockers; 1–2, unusable, unsafe or unlawful. Each finding names its severity and its evidence; the
+  score follows from the findings, not from impression. Only blockers and majors are fixed before version 1.
+  Domain yardsticks: fidelity, the Scrum Guide 2020 and the Kanban Guide (section 11); language, natural and correct
+  copy in the informal register, consistent terms; design, hierarchy, contrast AA, 44 px targets, no overflow from
+  360 to 1280 px; usability, *Don't Make Me Think* (trunk test, one primary action, no hidden required step);
+  security, an exploitable path or a missing defence against a likely threat; data protection, GDPR (lawful basis,
+  transparency that matches the code, minimisation, retention, rights); code, correctness, tests on risky paths,
+  coupling and clarity.
 - Three reviewers play users (a beginner on a phone in Romanian, a facilitator running a session for a team, an
   experienced and sceptical developer on a laptop in English). They do not read the internal documents and do not gate
   version 1; the orchestrator acts only on a criticism that reproduces, hurts learning or the session's flow, and does
@@ -338,7 +353,8 @@ a decision that no longer holds is marked superseded with the id that replaces i
   `GET /api/room/leaderboard`: a smoke test never creates a room.
 - **D-006.** `scripts/check-dist.mjs` reads the site origin from `astro.config.mjs` and the three source addresses from
   `app/i18n/sources.ts`, allows nothing else but XML namespace identifiers, requires identical policies in `web.config`
-  and `.htaccess`, and holds a size budget (JS 450 kB, CSS 150 kB, fonts 300 kB; 260, 61 and 206 kB on 15 November).
+  and `.htaccess`, and holds a size budget (JS 455 kB, CSS 150 kB, fonts 300 kB; 260, 61 and 206 kB on 15 November; 451, 90 and 206 kB on
+  19 November, D-116).
 - **D-007.** The review, retrospective and summary screens render only what the server's view holds: verdicts, scores, chart
   values and the average cycle time come from the view; nothing is computed in the browser.
 - **D-008.** A control is offered whenever `view.controls` allows it and never under a stricter rule of the client's own: ending
@@ -502,7 +518,7 @@ a decision that no longer holds is marked superseded with the id that replaces i
   `lgtm.v1`, never the seat entry. `hello` remains for newcomers. The wire name `lgtm.v1` is an internal identifier
   kept from the game's first name.
 - **D-061.** Only live sockets count against the caps that can refuse a person (12 joined, 8 unjoined). Sockets the room has
-  closed and the other side has not acknowledged are not counted; a backstop of 256 listed sockets, for memory only,
+  closed and the other side has not acknowledged are not counted; a backstop of 128 listed sockets (D-062), for memory only,
   refuses strangers and never a proven seat. A first version capped all listed sockets at 64 and turned 64 stalled
   connections into a way to keep every returning player out for the room's lifetime (fourth security review, 16
   November 2026).
@@ -633,6 +649,67 @@ a decision that no longer holds is marked superseded with the id that replaces i
   framework), which a stored fixture or an outside reader of the view would notice.
 - **D-101.** Tests that pin a trap explained by a decision carry its id in their name (for example D-036, D-046,
   D-061, D-062, D-077, D-089, D-091), so a failing test leads to its reason.
+- **D-102.** Sprint Planning shows the team's capacity in the selection step of both Sprints, next to the sum of the
+  estimates: the number of connected Developers and the Sprint's minutes of work ("Capacity: 4 Developers, 8 minutes of
+  work"), computed by the server in the Scrum planning view. There is no points formula, because the Scrum Guide asks
+  for the team's upcoming capacity, not a conversion; in Sprint 2 the velocity of Sprint 1 stays beside it (the
+  owner's decision 5; requirements audit, 19 November 2026).
+- **D-103.** The packages carry the game's name: `two-pizzas`, `two-pizzas-worker`, and the Worker `two-pizzas-rooms`.
+  The verdict value `lgtm`, the protocol name `lgtm.v1`, the `lg-` prefixes and the Durable Object classes and bindings
+  keep their names (D-001). `sharp` is no longer a dependency: the build uses no image service.
+- **D-104.** The phase clock is `role="timer"` with its live region off, so a screen reader is never told the time
+  every second; the contract lives in `app/ui/timer-aria.ts` and is pinned by tests. Colour tokens are tested against
+  WCAG AA for named pairs (`app/game/test/contrast.test.ts`): 4.5:1 for text, 3:1 for borders and focus rings; the
+  focus ring is drawn with an offset on the surrounding surface, never on an accent fill.
+- **D-105.** Each whole-game run answers one check question on the first page (Romanian) at the first work card of
+  each framework and asserts the verdict, the right answer and a reason from the dictionary (compared with the
+  page's non-breaking hyphen read as a plain hyphen).
+- **D-106.** The tour's scenes follow the player's own actions (beginner user test, 19 November 2026): the player's
+  item is the first order-kind solo item; the two items to verify are always a teammate's, never the player's solo or
+  pair item; the wrong one is the item the Review later shows as an escaped defect, worked by a scripted teammate and
+  approved by another, and the text says so. The Daily scene starts with the help already promised in step 7. In
+  Kanban the spare item at the switch is the right-review item, because the backlog has only three solo items. The
+  tour defines in plain words, once and where first used, Sprint Backlog, Developers, Request changes, Increment and
+  WIP limit; the terms themselves stay in English. The closing quick question is pinned to what the tour showed (what
+  the retrospective plans). On a phone during the tour the puzzle's Submit sits in the page flow, not sticky.
+- **D-107.** An observation, a help proposal or a Daily summary line whose count or wait is 0 is never shown; a Daily
+  with nothing waiting says so in one line. In the tour's vote scene the player's own note keeps its column and no
+  sample note appears twice.
+- **D-108.** A create or join that fails without a known reason in the answer (a non-OK status without a body, a
+  network failure) means the room server cannot be reached: the start page says so and offers the guided tour, which
+  needs no server, with a button. Refusals with a known reason (a full room and the others) keep their own messages.
+- **D-109.** A connection attempt that gets no open or no first answer within `config.room.connectTimeoutMs` (10 s,
+  twice the server's hello deadline, to allow a cold start) counts as a failed attempt: it feeds the back-off and the
+  rule that three failed attempts before any welcome are fatal; after a welcome a stalled reconnect only retries. The
+  connecting screen keeps its Leave control, so a page is never stranded (facilitator user test, 19 November 2026). A
+  fatal network error keeps the seat, so a rejoin stays possible after a short outage.
+- **D-110.** The lobby has one closed fold, "How the session goes", built from `sessionAgenda()` (`core/agenda.ts`),
+  which reads the timeboxes in the config so the two never drift: the events in order with the game minutes of each
+  iteration, the total (45 game minutes), the note that these are the game's minutes and not real timeboxes, and that
+  with talking a session takes about 45–60 minutes.
+- **D-111.** The Sprint Goal vote lists under each theme its Product Backlog items (id and name, in backlog order),
+  from the items the view already carries, because a Sprint Goal is chosen from the Product Backlog.
+- **D-112.** A player's unsent puzzle answer (order, incident action, merge values, review marks) is kept per item in
+  the client (`app/game/drafts.ts`) across phase changes, so a half that ends on the clock does not lose it; it is
+  restored only if it still fits the item's part, and dropped when the view shows the item submitted, no longer in
+  progress or no longer the player's, and on leaving. The server stays the authority (developer user test, 19
+  November 2026).
+- **D-113.** Every confirm opens with focus on Cancel; Escape cancels and returns focus to the control that opened it.
+  Ending the retrospective with no action chosen asks first. The Sprint Goal radio's accessible name is the theme
+  only; the theme's item list is its description (`aria-describedby`).
+- **D-114.** The Kanban delivery review states both facts: in real work an open item stays open and its age keeps
+  growing; the game starts round 2 on a fresh board so the two rounds compare fairly. The age line says that age
+  counts all the time since the start, meetings included.
+- **D-115.** The task generators never give a pair what the outside piece holds (order: the withheld clue is always an
+  adjacent link and the pair's own clues cannot imply it; incident: the held reading changes the first-fit action;
+  merge: the rule is hidden from the pair; review: the ignore list names only keys that differ), pinned over 60 seeds
+  by `core/test/tasks-dependency.test.ts`.
+- **D-116.** The JS budget of the output check is 455 kB (raised from 450 kB on 19 November 2026, at 451 kB after the
+  user-test fixes). The growth since 15 November comes from the tour, micro-learning, the per-framework screens and the
+  fixes; the budget stays a ceiling, and splitting the bundle is on the list for after version 1.
+- **D-117.** Text files are stored with LF line endings (`.gitattributes`: `* text=auto eol=lf`, images and fonts
+  binary), because editors and tools on Windows wrote CRLF into some files and made whole files look changed in a
+  diff. The commit that adds the rule renormalizes the index once.
 
 ## 11. Sources
 

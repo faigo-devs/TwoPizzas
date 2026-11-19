@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { Framework } from '../../../core/index.ts';
 import type { Translate } from '../../i18n/index.ts';
+import { Button } from '../../ui/Button.tsx';
 import { Hero } from '../../ui/Hero.tsx';
 import { TourInvite } from '../../ui/TourInvite.tsx';
 import { createRoom, joinRoom, startTour } from '../controller.ts';
@@ -29,9 +30,16 @@ export function Start({ state, t }: StartProps) {
   return (
     <>
       {generalError !== null ? (
-        <p class="lg-notice lg-notice--bad" role="alert" tabIndex={-1} data-lg-focus>
-          {generalError}
-        </p>
+        <div class="lg-notice lg-notice--bad lg-notice--stack" role="alert" tabIndex={-1} data-lg-focus>
+          <p>{generalError}</p>
+          {failure === 'network' ? (
+            <div class="lg-cluster">
+              <Button variant="tour" size="md" icon="play" onClick={() => startTour(framework)}>
+                {t('start.solo')}
+              </Button>
+            </div>
+          ) : null}
+        </div>
       ) : null}
       <div class="lg-start">
         <Hero

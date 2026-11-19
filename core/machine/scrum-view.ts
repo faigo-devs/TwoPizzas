@@ -31,6 +31,10 @@ function planningView(s: RoomState, p: Player): ScrumPlanningView {
     totalEstimate: s.items
       .filter((item) => item.status === 'todo')
       .reduce((sum, item) => sum + (item.estimate ?? 0), 0),
+    capacity: {
+      developers: s.players.filter((player) => player.connected).length,
+      workMinutes: Math.round((2 * config.timeboxMs.workHalf) / 60_000),
+    },
     previousVelocity: state.signals.previousVelocity,
     estimationStopped: state.estimationStopped,
   };

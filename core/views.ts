@@ -145,6 +145,14 @@ export interface PokerView {
 }
 
 /**
+ * The team's capacity for the Sprint: the Developers who are present and the minutes of work.
+ */
+export interface CapacityView {
+  developers: number;
+  workMinutes: number;
+}
+
+/**
  * What a Scrum planning shows: the goal vote, Planning Poker and the commitment so far.
  */
 export interface ScrumPlanningView {
@@ -155,6 +163,7 @@ export interface ScrumPlanningView {
   poker: PokerView | null;
   estimatedCount: number;
   totalEstimate: number;
+  capacity: CapacityView;
   previousVelocity: number | null;
   estimationStopped: boolean;
 }

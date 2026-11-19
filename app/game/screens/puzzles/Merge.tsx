@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { MergeFullPart, MergeWorkerPart } from '../../../../core/index.ts';
 import { MergeTable } from '../../../ui/Puzzle.tsx';
+import { loadDraft, saveDraft } from '../../drafts.ts';
 import { key } from '../../format.ts';
 import type { BodyProps } from './tokens.ts';
 
@@ -17,10 +18,14 @@ function parse(values: string[]): number[] | null {
 /**
  * Merge: the base file and each side's changes, and one merged value per line.
  */
-export function MergeBody({ part, pair, t, subject, readOnly, submission, onResponse }: MergeBodyProps) {
-  const [values, setValues] = useState<string[]>(() => part.lines.map(() => ''));
+export function MergeBody({ itemId, part, pair, t, subject, readOnly, submission, onResponse }: MergeBodyProps) {
+  const [values, setValues] = useState<string[]>(() => {
+    const draft = loadDraft(itemId, 'merge');
+    return draft !== null && draft.values.length === part.lines.length ? [...draft.values] : part.lines.map(() => '');
+  });
   useEffect(() => {
     if (readOnly) return;
+    saveDraft(itemId, { kind: 'merge', values });
     const numbers = parse(values);
     onResponse(numbers === null ? null : { kind: 'merge', values: numbers });
   }, [values]);

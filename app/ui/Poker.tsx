@@ -58,21 +58,43 @@ export interface GoalOptionProps {
   description: string;
   bonus: string;
   checked: boolean;
+  items?: { id: string; subject: string }[];
   onChange?: (value: string) => void;
 }
 
 /**
  * Selectable Sprint Goal offer: a radio input wrapped in a card with the goal, its rule and its bonus.
  */
-export function GoalOption({ name, value, title, description, bonus, checked, onChange }: GoalOptionProps) {
+export function GoalOption({ name, value, title, description, bonus, checked, items = [], onChange }: GoalOptionProps) {
+  const base = `${name}-${value}`;
+  const withItems = items.length > 0;
   return (
-    <label class={cx('lg-goal', checked && 'is-checked')}>
-      <input type="radio" name={name} value={value} checked={checked} onChange={() => onChange?.(value)} />
-      <span class="lg-goal__body">
-        <span class="lg-goal__title">{title}</span>
-        <span class="lg-goal__desc">{description}</span>
-      </span>
-      <span class="lg-goal__bonus">{bonus}</span>
-    </label>
+    <div class="lg-goalbox">
+      <label class={cx('lg-goal', checked && 'is-checked', withItems && 'has-items')}>
+        <input
+          type="radio"
+          name={name}
+          value={value}
+          checked={checked}
+          aria-labelledby={`${base}-title`}
+          aria-describedby={withItems ? `${base}-desc ${base}-items` : `${base}-desc`}
+          onChange={() => onChange?.(value)}
+        />
+        <span class="lg-goal__body">
+          <span class="lg-goal__title" id={`${base}-title`}>{title}</span>
+          <span class="lg-goal__desc" id={`${base}-desc`}>{description}</span>
+        </span>
+        <span class="lg-goal__bonus">{bonus}</span>
+      </label>
+      {withItems ? (
+        <ul class="lg-goal__items" id={`${base}-items`}>
+          {items.map((item) => (
+            <li key={item.id} class="lg-goal__item">
+              <span class="lg-mono lg-goal__id">{item.id}</span> {item.subject}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }

@@ -26,6 +26,7 @@ function Body({ view, workspace, item, t, onResponse }: WorkspaceProps & { onRes
   const readOnly = workspace.mode === 'review';
   const pair = item.workersNeeded === 2;
   const common = {
+    itemId: item.id,
     t,
     subject: item.subject,
     readOnly,

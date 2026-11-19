@@ -68,6 +68,7 @@ function AgePanel({ flow, view, t }: { flow: IterationMetrics; view: KanbanPlaye
       ) : (
         <>
           <p class="lg-muted">{t('inspect.verdict.notDoneText.kanban')}</p>
+          {view.phase.kind === 'inspect' && view.phase.iteration === 1 ? <p class="lg-muted">{t('delivery.freshBoard')}</p> : null}
           <ul class="lg-ages">
             {sorted.map((own) => {
               const item = view.items.find((candidate) => candidate.id === own.itemId);

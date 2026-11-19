@@ -1,4 +1,4 @@
-name = "lgtm-rooms"
+name = "two-pizzas-rooms"
 main = "src/index.ts"
 compatibility_date = "2026-04-07"
 workers_dev = false

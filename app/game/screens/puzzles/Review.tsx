@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { ReviewFullPart, ReviewWorkerPart } from '../../../../core/index.ts';
 import { ConfigListing } from '../../../ui/Puzzle.tsx';
+import { loadDraft, saveDraft } from '../../drafts.ts';
 import type { BodyProps } from './tokens.ts';
 
 export interface ReviewBodyProps extends BodyProps {
@@ -10,11 +11,13 @@ export interface ReviewBodyProps extends BodyProps {
 /**
  * Code review: the copies of one file, and a mark on every key whose value differs.
  */
-export function ReviewBody({ part, t, subject, readOnly, copyIndex, submission, onResponse }: ReviewBodyProps) {
-  const [marked, setMarked] = useState<string[]>([]);
+export function ReviewBody({ itemId, part, t, subject, readOnly, copyIndex, submission, onResponse }: ReviewBodyProps) {
+  const [marked, setMarked] = useState<string[]>(() => [...(loadDraft(itemId, 'review')?.marked ?? [])]);
   const shown = readOnly && submission?.kind === 'review' ? submission.keys : marked;
   useEffect(() => {
-    if (!readOnly) onResponse({ kind: 'review', keys: marked });
+    if (readOnly) return;
+    saveDraft(itemId, { kind: 'review', marked });
+    onResponse({ kind: 'review', keys: marked });
   }, [marked]);
   const toggle = (name: string) => setMarked((own) => (own.includes(name) ? own.filter((entry) => entry !== name) : [...own, name]));
   const ignore = part.scope === 'full' ? part.ignore : [];

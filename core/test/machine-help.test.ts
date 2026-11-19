@@ -190,7 +190,8 @@ test('the review wait proposals come from the number or from the answer', () => 
     assert.deepEqual(ids(fromNumber), ['slowed.review', 'try.review']);
     assert.deepEqual(fromNumber[0]?.params, { waitSec: 70 });
     assert.deepEqual(fromNumber[1]?.params, { limitSec: 60 });
-    assert.deepEqual(ids(proposalsOf(framework, {}, { wait: 'review' })), ['slowed.review', 'try.review']);
+    assert.deepEqual(ids(proposalsOf(framework, { reviewWaitMs: 5000 }, { wait: 'review' })), ['slowed.review', 'try.review']);
+    assert.deepEqual(ids(proposalsOf(framework, {}, { wait: 'review' })), ['try.review']);
     assert.deepEqual(ids(proposalsOf(framework, {}, { wait: 'none' })), []);
   }
 });
@@ -198,8 +199,9 @@ test('the review wait proposals come from the number or from the answer', () => 
 test('the pair wait proposals are replaced by the answer once one is given', () => {
   for (const framework of Both) {
     assert.deepEqual(ids(proposalsOf(framework, { pairWaitMs: 20_000 })), ['slowed.pair', 'try.pair']);
-    assert.deepEqual(ids(proposalsOf(framework, { pairWaitMs: 20_000 }, { wait: 'review' })), ['slowed.review', 'try.review']);
-    assert.deepEqual(ids(proposalsOf(framework, {}, { wait: 'pair' })), ['slowed.pair', 'try.pair']);
+    assert.deepEqual(ids(proposalsOf(framework, { pairWaitMs: 20_000 }, { wait: 'review' })), ['try.review']);
+    assert.deepEqual(ids(proposalsOf(framework, { pairWaitMs: 5000 }, { wait: 'pair' })), ['slowed.pair', 'try.pair']);
+    assert.deepEqual(ids(proposalsOf(framework, {}, { wait: 'pair' })), ['try.pair']);
   }
 });
 
@@ -208,8 +210,23 @@ test('the missing information proposals follow blocked items or the answer', () 
     const list = proposalsOf(framework, { blocked: 2 });
     assert.deepEqual(ids(list), ['slowed.info', 'try.info']);
     assert.deepEqual(list[0]?.params, { count: 2 });
-    assert.deepEqual(ids(proposalsOf(framework, {}, { wait: 'info' })), ['slowed.info', 'try.info']);
-    assert.deepEqual(ids(proposalsOf(framework, { blocked: 2 }, { wait: 'pair' })), ['slowed.pair', 'try.pair']);
+    assert.deepEqual(ids(proposalsOf(framework, { blocked: 1 }, { wait: 'info' })), ['slowed.info', 'try.info']);
+    assert.deepEqual(ids(proposalsOf(framework, {}, { wait: 'info' })), ['try.info']);
+    assert.deepEqual(ids(proposalsOf(framework, { blocked: 2 }, { wait: 'pair' })), ['try.pair']);
+  }
+});
+
+test('no proposal states a count or a wait of zero, whatever the answers say', () => {
+  const answers = { wait: 'info', unfinished: 'other', defects: 'rushed' };
+  const zeroes = ['slowed.info', 'slowed.unfinished', 'slowed.defects', 'slowed.review', 'slowed.pair'];
+  for (const framework of Both) {
+    for (const wait of ['review', 'pair', 'info']) {
+      const list = proposalsOf(framework, {}, { ...answers, wait });
+      for (const own of list) {
+        assert.ok(!zeroes.includes(own.id), own.id);
+        for (const value of Object.values(own.params)) assert.notEqual(value, 0, own.id);
+      }
+    }
   }
 });
 
@@ -232,7 +249,8 @@ test('the unfinished proposals offer estimates in Scrum and finishing first in K
   assert.deepEqual(ids(proposalsOf('kanban', { unfinished: 2 })), ['slowed.unfinished', 'try.finish_first']);
   for (const framework of Both) {
     assert.equal(proposalsOf(framework, { unfinished: 2 })[0]?.params.count, 2);
-    assert.equal(ids(proposalsOf(framework, {}, { unfinished: 'other' })).length, 2);
+    assert.equal(ids(proposalsOf(framework, { unfinished: 1 }, { unfinished: 'other' })).length, 2);
+    assert.equal(ids(proposalsOf(framework, {}, { unfinished: 'other' })).length, 1);
   }
 });
 
@@ -241,7 +259,8 @@ test('the defect proposals follow escaped defects or the answer', () => {
     const list = proposalsOf(framework, { escaped: 2 });
     assert.deepEqual(ids(list), ['slowed.defects', 'try.review_care']);
     assert.deepEqual(list[0]?.params, { count: 2 });
-    assert.deepEqual(ids(proposalsOf(framework, {}, { defects: 'rushed' })), ['slowed.defects', 'try.review_care']);
+    assert.deepEqual(ids(proposalsOf(framework, { escaped: 1 }, { defects: 'rushed' })), ['slowed.defects', 'try.review_care']);
+    assert.deepEqual(ids(proposalsOf(framework, {}, { defects: 'rushed' })), ['try.review_care']);
   }
 });
 
@@ -316,5 +335,17 @@ test('nothing offered in a Kanban room mentions goals, estimates or velocity', (
   for (const own of questions) {
     assert.ok(!forbidden.test(own.id), own.id);
     for (const choice of own.choices) assert.ok(!forbidden.test(choice), choice);
+  }
+});
+
+test('no observation of a played game states a count of zero', () => {
+  for (const framework of Both) {
+    const state = JSON.parse(finished(framework)) as RoomState;
+    assert.ok(state.observations.length > 0);
+    for (const observation of state.observations) {
+      for (const [name, value] of Object.entries(observation.params)) {
+        if (name === 'count' || name === 'changes') assert.notEqual(value, 0, observation.id);
+      }
+    }
   }
 });

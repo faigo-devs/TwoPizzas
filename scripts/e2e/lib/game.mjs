@@ -1,4 +1,4 @@
-import { kanbanReplenishment, retroEvent, reviewEvent, scrumPlanning, beginPhase } from './events.mjs';
+import { answerCheckQuestion, kanbanReplenishment, retroEvent, reviewEvent, scrumPlanning, beginPhase } from './events.mjs';
 import { lockAndUnlock, openAndJoin, startGame } from './lobby.mjs';
 import { summaryEvent } from './summary.mjs';
 import { playTour } from './tour.mjs';
@@ -14,6 +14,7 @@ function stopHere(run, name) {
 
 async function sprint(run, state, iteration) {
   await run.waitScreen(`work:${iteration}:1:card`);
+  if (iteration === 1) await answerCheckQuestion(run, run.players[0], 'plan');
   await beginPhase(run);
   await run.waitScreen(`work:${iteration}:1:running`);
   await playWorkHalf(run, state, { iteration, half: 1 });

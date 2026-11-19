@@ -58,8 +58,8 @@ node scripts/staging-check.mjs https://<staging host>   # room server limits on 
 - No new dependency without the orchestrator's agreement. No analytics, no third-party origin, no cookie.
 - The repository is public. No host name, account, provider name, address or secret in code, documents, workflows or
   commit messages: such values come only from secrets and variables. The one exception is the game's own public
-  address, twopizzas.faigo.ro (the owner's decision 21; spec section 2): it is the `site` in `astro.config.mjs` and is named in
-  the documents. The seed of a room never leaves the server.
+  address, twopizzas.faigo.ro (the owner's decision 21; spec section 2): it is the `site` in `astro.config.mjs`, appears in the host files
+  `public/web.config` and `public/.htaccess` that the output check requires, and is named in the documents. The seed of a room never leaves the server.
 - Never add `Strict-Transport-Security` to `public/web.config`: the host already sends it and a second entry makes the
   host answer 500 on every page.
 - Nothing is published before a pilot session with real beginners and the independent reviewers at 9/10 each.

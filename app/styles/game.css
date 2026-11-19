@@ -33,6 +33,15 @@
   font-size: var(--lg-t-sm);
 }
 
+.lg-notice--stack {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.lg-notice--stack p {
+  margin: 0;
+}
+
 .lg-notice svg {
   flex: none;
 }

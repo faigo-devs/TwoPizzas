@@ -158,6 +158,62 @@ describe('remote transport', () => {
     assert.equal(h.cleared, 0);
   });
 
+  it('counts a socket that never opens as a failed attempt and gives up after three', () => {
+    const h = harness();
+    createRemoteTransport(NoSeat, h.handlers, h.env).start();
+    assert.equal(h.fireTimeout(), config.room.connectTimeoutMs);
+    assert.equal(h.sockets[0]!.closedWith !== null, true);
+    assert.equal(h.fireTimeout(), 500);
+    assert.equal(h.fireTimeout(), config.room.connectTimeoutMs);
+    assert.equal(h.fireTimeout(), 1000);
+    assert.equal(h.errors.length, 0);
+    assert.equal(h.fireTimeout(), config.room.connectTimeoutMs);
+    assert.deepEqual(h.errors, [{ code: 'network', fatal: true }]);
+    assert.equal(h.statuses.at(-1), 'closed');
+    assert.equal(h.sockets.length, 3);
+    assert.equal(h.timers.size, 0);
+  });
+
+  it('counts a socket that opens but never welcomes as a failed attempt', () => {
+    const h = harness();
+    createRemoteTransport(NoSeat, h.handlers, h.env).start();
+    h.sockets[0]!.open();
+    h.fireTimeout();
+    assert.equal(h.sockets[0]!.closedWith !== null, true);
+    assert.equal([...h.timers.values()].filter((timer) => timer.every).length, 0);
+    assert.equal(h.fireTimeout(), 500);
+    h.sockets[1]!.open();
+    h.fireTimeout();
+    h.fireTimeout();
+    h.sockets[2]!.open();
+    h.fireTimeout();
+    assert.deepEqual(h.errors, [{ code: 'network', fatal: true }]);
+  });
+
+  it('does not time out an attempt that was answered', () => {
+    const h = harness();
+    createRemoteTransport(NoSeat, h.handlers, h.env).start();
+    h.sockets[0]!.open();
+    h.sockets[0]!.receive({ t: 'welcome', playerId: 'p1', token: 'tok' });
+    assert.equal([...h.timers.values()].filter((timer) => !timer.every).length, 0);
+    assert.equal(h.errors.length, 0);
+  });
+
+  it('retries a stalled reconnect without a fatal error after a welcome', () => {
+    const h = harness();
+    createRemoteTransport(Held, h.handlers, h.env).start();
+    h.sockets[0]!.open();
+    h.sockets[0]!.receive({ t: 'welcome', playerId: 'p1', token: 'tok' });
+    h.sockets[0]!.drop(1006);
+    h.fireTimeout();
+    for (let index = 0; index < 5; index += 1) {
+      h.fireTimeout();
+      h.fireTimeout();
+    }
+    assert.equal(h.errors.length, 0);
+    assert.equal(h.statuses.at(-1), 'reconnecting');
+  });
+
   it('treats a throwing socket constructor as a failed attempt', () => {
     const h = harness();
     h.env.openSocket = () => {

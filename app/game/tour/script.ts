@@ -1,6 +1,6 @@
 import { config, machine } from '../../../core/index.ts';
 import { profileOf } from '../framework.ts';
-import type { Action, ClientAction, Framework, OrderClue, PlayerId, RoomState, WorkItem } from '../../../core/index.ts';
+import type { Action, ClientAction, Framework, OrderClue, PlayerId, RetroColumn, RoomState, WorkItem } from '../../../core/index.ts';
 import type { Key } from '../../i18n/index.ts';
 import { decide, rightResponse, wrongResponse } from '../local/bots.ts';
 import { skipEvent, type LocalClock } from '../local/room.ts';
@@ -15,7 +15,17 @@ const Secrets: Record<Framework, string> = {
 const BaseMs = 900_000;
 const StepMs = 700;
 const SwitchWaitMs = config.contextSwitchMs + 1000;
-const SampleNote = 'bot.note.try.1';
+const SampleNote: Key = 'bot.note.try.3';
+const MateNotes: Record<string, readonly [Key, Key]> = {
+  'mate-1': ['bot.note.went_well.1', 'bot.note.slowed_us.1'],
+  'mate-2': ['bot.note.try.1', 'bot.note.slowed_us.2'],
+  'mate-3': ['bot.note.went_well.2', 'bot.note.try.2'],
+};
+const NoteColumns: Record<string, RetroColumn> = {
+  went_well: 'went_well',
+  slowed_us: 'slowed_us',
+  try: 'try',
+};
 
 /**
  * The prepared situations of the tour; each is built from nothing by the engine's reducer.
@@ -53,11 +63,25 @@ export interface Scene {
   says: TourSays | null;
 }
 
-interface Cast {
+/**
+ * The note the player wrote in the notes step, carried into the vote scene.
+ */
+export interface OwnNote {
+  column: RetroColumn;
+  text: string;
+}
+
+/**
+ * The items the tour's scenes are cast with: the player's own, two a scripted teammate works, a spare one to switch to, and the pair and blocked ones.
+ */
+export interface Cast {
   solos: string[];
   order: string;
   pair: string;
   dependent: string;
+  right: string;
+  wrong: string;
+  spare: string;
 }
 
 class Run {
@@ -122,7 +146,9 @@ function castOf(state: RoomState): Cast {
   if (ordered.length < 3 || head === undefined || head.kind !== 'order' || pair === undefined || dependent === undefined) {
     throw new Error('tour: the backlog lacks the items the tour needs');
   }
-  return { solos: ordered, order: head.id, pair: pair.id, dependent: dependent.id };
+  const [right, wrong] = [ordered[1], ordered[2]];
+  if (right === undefined || wrong === undefined) throw new Error('tour: the backlog lacks the items the tour needs');
+  return { solos: ordered, order: head.id, pair: pair.id, dependent: dependent.id, right, wrong, spare: ordered[3] ?? right };
 }
 
 function start(run: Run, lead: PlayerId): Cast {
@@ -186,7 +212,7 @@ function endHalf(run: Run): void {
 }
 
 function board(run: Run, cast: Cast): void {
-  const [finished, waiting] = [cast.solos[0] as string, cast.solos[1] as string];
+  const [finished, waiting] = [cast.right, cast.wrong];
   toRunning(run, four(cast));
   submitAs(run, 'mate-1', finished);
   reviewAs(run, 'mate-2', finished);
@@ -210,14 +236,14 @@ function solo(run: Run, cast: Cast): void {
 }
 
 function switching(run: Run, cast: Cast): void {
-  const first = cast.solos[1] as string;
-  const second = cast.solos[2] as string;
-  toRunning(run, [cast.solos[0] as string, first, second, cast.pair]);
-  run.act('mate-2', { type: 'item.take', itemId: cast.solos[0] as string });
+  const mate = cast.solos.find((id) => id !== cast.order && id !== cast.spare);
+  if (mate === undefined) throw new Error('tour: the switch scene lacks a teammate item');
+  toRunning(run, [cast.order, cast.spare, mate, cast.pair]);
+  run.act('mate-2', { type: 'item.take', itemId: mate });
   pairUp(run, cast.pair, 'mate-1', 'mate-3');
-  run.act(TourYou, { type: 'item.take', itemId: first });
-  run.act(TourYou, { type: 'item.open', itemId: first, mode: 'work' });
-  run.act(TourYou, { type: 'item.take', itemId: second });
+  run.act(TourYou, { type: 'item.take', itemId: cast.order });
+  run.act(TourYou, { type: 'item.open', itemId: cast.order, mode: 'work' });
+  run.act(TourYou, { type: 'item.take', itemId: cast.spare });
   run.wait(SwitchWaitMs);
 }
 
@@ -238,17 +264,19 @@ function held(run: Run, cast: Cast): void {
 }
 
 function review(run: Run, cast: Cast, right: boolean): void {
+  const [item, other] = right ? [cast.right, cast.wrong] : [cast.wrong, cast.right];
   toRunning(run, four(cast));
-  submitAs(run, 'mate-1', cast.order, right);
-  run.act(TourYou, { type: 'item.take_review', itemId: cast.order });
-  run.act('mate-2', { type: 'item.take', itemId: cast.solos[1] as string });
+  submitAs(run, 'mate-1', item, right);
+  run.act(TourYou, { type: 'item.take_review', itemId: item });
+  run.act('mate-2', { type: 'item.take', itemId: other });
   run.wait(SwitchWaitMs);
 }
 
 function daily(run: Run, cast: Cast): void {
-  toRunning(run, [cast.solos[0] as string, cast.solos[1] as string, cast.pair, cast.dependent]);
+  toRunning(run, [cast.right, cast.wrong, cast.pair, cast.dependent]);
   pairUp(run, cast.dependent, 'mate-1', 'mate-2');
-  submitAs(run, 'mate-2', cast.solos[0] as string);
+  run.act(TourYou, { type: 'help.promise', itemId: cast.dependent });
+  submitAs(run, 'mate-2', cast.right);
   run.act('mate-3', { type: 'item.take', itemId: cast.pair });
   endHalf(run);
   run.act(run.lead(), { type: 'phase.begin' });
@@ -256,10 +284,10 @@ function daily(run: Run, cast: Cast): void {
 
 function inspect(run: Run, cast: Cast): void {
   toRunning(run, four(cast));
-  submitAs(run, 'mate-1', cast.solos[0] as string, true);
-  reviewAs(run, 'mate-2', cast.solos[0] as string);
-  submitAs(run, 'mate-3', cast.solos[1] as string, false);
-  reviewAs(run, 'mate-2', cast.solos[1] as string);
+  submitAs(run, TourYou, cast.order, true);
+  reviewAs(run, 'mate-2', cast.order);
+  submitAs(run, 'mate-3', cast.wrong, false);
+  reviewAs(run, 'mate-2', cast.wrong);
   endHalf(run);
   run.act(TourYou, { type: 'phase.begin' });
   run.act(TourYou, { type: 'daily.end' });
@@ -294,9 +322,18 @@ function mateRounds(run: Run, note: (key: Key) => string, finished: () => boolea
       if (decision === null) continue;
       const type = decision.action.type;
       if (type === 'retro.reveal' || type === 'phase.advance' || type === 'phase.begin') continue;
-      run.act(id, decision.action, 0);
+      run.act(id, type === 'retro.note_add' ? (mateNote(run, id, note) ?? decision.action) : decision.action, 0);
     }
   }
+}
+
+function mateNote(run: Run, id: PlayerId, note: (key: Key) => string): ClientAction | null {
+  const retro = run.state.iterations[run.state.iterations.length - 1]?.retro;
+  const keys = MateNotes[id];
+  if (retro === undefined || keys === undefined) return null;
+  const key = keys[retro.notes.filter((own) => own.authorId === id).length];
+  const column = key === undefined ? undefined : NoteColumns[key.split('.')[2] as string];
+  return key === undefined || column === undefined ? null : { type: 'retro.note_add', column, text: note(key) };
 }
 
 function retroNotes(run: Run, note: (key: Key) => string): void {
@@ -304,9 +341,9 @@ function retroNotes(run: Run, note: (key: Key) => string): void {
   mateRounds(run, note, () => notesDone(run));
 }
 
-function retroVote(run: Run, note: (key: Key) => string, own: string | null): void {
+function retroVote(run: Run, note: (key: Key) => string, own: OwnNote | null): void {
   retroNotes(run, note);
-  run.act(TourYou, { type: 'retro.note_add', column: 'try', text: own ?? note(SampleNote) });
+  run.act(TourYou, { type: 'retro.note_add', column: own?.column ?? 'try', text: own?.text ?? note(SampleNote) });
   run.act(run.lead(), { type: 'retro.reveal' });
 }
 
@@ -349,7 +386,7 @@ function says(run: Run, cast: Cast): TourSays {
 /**
  * Builds one prepared situation from a fixed secret by playing the scripted teammates' moves through the engine's reducer.
  */
-export function buildScene(framework: Framework, id: SceneId, note: (key: Key) => string, own: string | null = null): Scene {
+export function buildScene(framework: Framework, id: SceneId, note: (key: Key) => string, own: OwnNote | null = null): Scene {
   const run = new Run(framework);
   const lead: PlayerId = id === 'review' || id === 'action' ? TourYou : 'mate-1';
   const cast = start(run, lead);

@@ -3,6 +3,7 @@ import { dictionaries, type Translate } from '../../../i18n/index.ts';
 import { key } from '../../format.ts';
 
 export interface BodyProps {
+  itemId: string;
   t: Translate;
   subject: string;
   readOnly: boolean;

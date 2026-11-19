@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { OrderFullPart, OrderWorkerPart } from '../../../../core/index.ts';
 import { OrderList } from '../../../ui/Puzzle.tsx';
+import { loadDraft, saveDraft } from '../../drafts.ts';
 import type { BodyProps } from './tokens.ts';
 
 export interface OrderBodyProps extends BodyProps {
@@ -11,10 +12,16 @@ export interface OrderBodyProps extends BodyProps {
 /**
  * Deploy order: the clues, and the components in the order the player puts them.
  */
-export function OrderBody({ part, pair, t, readOnly, submission, onResponse }: OrderBodyProps) {
-  const [order, setOrder] = useState<string[]>(() => [...part.components]);
+export function OrderBody({ itemId, part, pair, t, readOnly, submission, onResponse }: OrderBodyProps) {
+  const [order, setOrder] = useState<string[]>(() => {
+    const draft = loadDraft(itemId, 'order');
+    const same = draft !== null && draft.order.length === part.components.length && part.components.every((name) => draft.order.includes(name));
+    return same ? [...draft.order] : [...part.components];
+  });
   useEffect(() => {
-    if (!readOnly) onResponse({ kind: 'order', order });
+    if (readOnly) return;
+    saveDraft(itemId, { kind: 'order', order });
+    onResponse({ kind: 'order', order });
   }, [order]);
   const move = (index: number, delta: -1 | 1) =>
     setOrder((own) => {

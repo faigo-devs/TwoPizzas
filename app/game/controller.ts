@@ -1,6 +1,7 @@
 import { isErrorCode, isRoomCode } from '../../core/index.ts';
 import type { ClientAction, Framework, LeaderboardResponse, PlayerView } from '../../core/index.ts';
 import { createT, isLanguage, pickLanguage, type Lang, type Translate } from '../i18n/index.ts';
+import { clearDrafts, pruneDrafts } from './drafts.ts';
 import { createLocalTransport } from './local/transport.ts';
 import { stepsFor } from './tour/steps.ts';
 import { createTourTransport } from './tour/transport.ts';
@@ -50,6 +51,7 @@ function handlers(): TransportHandlers {
       store.set(patch);
     },
     onView: (view: PlayerView) => {
+      pruneDrafts(view.items, view.selfId);
       store.set({ view, clock: { server: view.now, at: performance.now() }, busy: null });
     },
     onError: (code: FailureCode, fatal: boolean) => {
@@ -65,6 +67,7 @@ function handlers(): TransportHandlers {
 }
 
 function teardown(): void {
+  clearDrafts();
   if (transport !== null) transport.close();
   transport = null;
   store.set({ mode: null, status: 'idle', view: null, clock: null, toast: null, connectionNote: null, scriptStep: 0, copied: false, tourStep: 0, tourSays: null, tourBaseline: null, learn: {}, said: null });
@@ -77,17 +80,28 @@ function connect(seat: Seat): void {
   transport.start();
 }
 
-/**
- * The error code a failed response body carries, or bad_request when it carries none.
- */
-export function failureOf(raw: unknown): FailureCode {
+function carriedCode(raw: unknown): FailureCode | null {
   if (raw !== null && typeof raw === 'object') {
     const { code, error } = raw as Record<string, unknown>;
     for (const candidate of [code, error]) {
       if (isErrorCode(candidate)) return candidate;
     }
   }
-  return 'bad_request';
+  return null;
+}
+
+/**
+ * The error code a failed response body carries, or bad_request when it carries none.
+ */
+export function failureOf(raw: unknown): FailureCode {
+  return carriedCode(raw) ?? 'bad_request';
+}
+
+/**
+ * The reason a refused create gives, or network when the answer carries none: a page, a gateway error or a missing server, not a refusal.
+ */
+export function refusalOf(raw: unknown): FailureCode {
+  return carriedCode(raw) ?? 'network';
 }
 
 export async function createRoom(framework: Framework): Promise<void> {
@@ -100,7 +114,7 @@ export async function createRoom(framework: Framework): Promise<void> {
     });
     const body: unknown = await response.json().catch(() => null);
     if (!response.ok) {
-      store.set({ busy: null, startError: failureOf(body) });
+      store.set({ busy: null, startError: refusalOf(body) });
       return;
     }
     const code = body !== null && typeof body === 'object' ? (body as Record<string, unknown>).code : undefined;

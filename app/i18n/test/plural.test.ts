@@ -63,3 +63,10 @@ test('first visit language', () => {
   assert.equal(pickLanguage([]), 'ro');
   assert.equal(pickLanguage(undefined), 'ro');
 });
+
+test('the Sprint Planning capacity line in both languages', () => {
+  assert.equal(createT('en')('commit.capacity', { developers: 4, minutes: 8 }), 'Capacity: 4 Developers, 8 minutes of work');
+  assert.equal(createT('ro')('commit.capacity', { developers: 4, minutes: 8 }), 'Capacitate: 4 Developers, 8 minute de lucru');
+  assert.equal(createT('ro')('commit.capacity', { developers: 3, minutes: 20 }), 'Capacitate: 3 Developers, 20 de minute de lucru');
+  assert.equal(createT('en')('commit.capacity', { developers: 3, minutes: 1 }), 'Capacity: 3 Developers, 1 minute of work');
+});

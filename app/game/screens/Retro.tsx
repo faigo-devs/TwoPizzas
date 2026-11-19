@@ -353,7 +353,7 @@ function ActionStep({ view, t }: { view: PlayerView; t: Translate }) {
             >
               {t('retro.action.choose')}
             </Button>
-            <StepMove view={view} t={t} label={t('retro.end')} secondary={retro.action === null} bare />
+            <StepMove view={view} t={t} label={t('retro.end')} secondary={retro.action === null} bare confirm={retro.action === null ? { prompt: t('retro.end.confirm'), yes: t('retro.end.yes') } : undefined} />
           </ActionBar>
         ) : null}
         {retro.action === null && !canChoose ? <p class="lg-muted">{t('phase.waitingFor', { role: facilitatorRoleDef(view, t) })}</p> : null}

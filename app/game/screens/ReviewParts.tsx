@@ -2,6 +2,7 @@ import type { Agreement, InspectPhase, IterationMetrics, PlayerView, RetroPhase 
 import type { Translate } from '../../i18n/index.ts';
 import { ActionBar } from '../../ui/ActionBar.tsx';
 import { Button } from '../../ui/Button.tsx';
+import { ConfirmAction } from '../../ui/Confirm.tsx';
 import { ComparisonChart, DotPlot } from '../../ui/Charts.tsx';
 import { act } from '../controller.ts';
 import { facilitatorRoleDef, formatClock, key } from '../format.ts';
@@ -40,13 +41,29 @@ export interface MoveProps {
   label?: string;
   secondary?: boolean;
   bare?: boolean;
+  confirm?: { prompt: string; yes: string };
 }
 
 /**
  * The facilitator's button that ends the step, or a line telling everyone else who moves the game on.
  */
-export function StepMove({ view, t, label, secondary = false, bare = false }: MoveProps) {
+export function StepMove({ view, t, label, secondary = false, bare = false, confirm }: MoveProps) {
   if (view.controls.includes('advance')) {
+    if (confirm !== undefined) {
+      const asking = (
+        <ConfirmAction
+          variant={secondary ? 'secondary' : 'primary'}
+          size="lg"
+          icon="play"
+          label={label ?? t('phase.next')}
+          prompt={confirm.prompt}
+          confirmLabel={confirm.yes}
+          cancelLabel={t('common.cancel')}
+          onConfirm={() => act({ type: 'phase.advance' })}
+        />
+      );
+      return bare ? asking : <ActionBar>{asking}</ActionBar>;
+    }
     const button = (
       <Button variant={secondary ? 'secondary' : 'primary'} size="lg" icon="play" onClick={() => act({ type: 'phase.advance' })}>
         {label ?? t('phase.next')}

@@ -68,10 +68,11 @@ export function Daily({ view, phase, t, scriptStep, local }: DailyProps) {
   const canEnd = view.controls.includes('end_daily');
   const profile = profileOf(view.framework);
   const facts: string[] = [
-    t('daily.summary.blocked', { count: blocked.length }),
-    t('daily.summary.review', { count: waitingReview.length }),
-    t('daily.summary.pair', { count: waitingPair.length }),
+    ...(blocked.length > 0 ? [t('daily.summary.blocked', { count: blocked.length })] : []),
+    ...(waitingReview.length > 0 ? [t('daily.summary.review', { count: waitingReview.length })] : []),
+    ...(waitingPair.length > 0 ? [t('daily.summary.pair', { count: waitingPair.length })] : []),
   ];
+  if (facts.length === 0) facts.push(t('daily.summary.clear'));
   return (
     <>
       <div class="lg-play-head">
