@@ -5,7 +5,8 @@ Stare și decizii, ca o sesiune nouă să poată continua fără istoricul conve
 
 ## Stare
 - Jocul se numește **Two Pizzas** (redenumit din LGTM pe 15 noiembrie, seara; decizia 13). Numele e schimbat în texte,
-  pagini, wordmark, logo, pe GitHub și în numele interne (D-103); folderul local (`repos/LGTM`) se schimbă la reclonare.
+  pagini, wordmark, logo, pe GitHub și în numele interne (D-103); folderul local e `repos/TwoPizzas` (reclonat pe
+  19 noiembrie; vechiul `repos/LGTM` e șters).
 - Repo public și open source, `faigo-devs/TwoPizzas` (licență MIT; numele și logo-ul firmei nu intră sub licență).
 - Există: specificația, deciziile, sursele verificate (`docs/spec.md`, secțiunea 11), fișierele de server ale gazdei
   (`public/`), logo-urile, rapoartele evaluatorilor (`docs/reviews/`). Jocul anterior fără server, din care s-au portat
@@ -158,10 +159,11 @@ au rămas local în `.qa/`, care nu intră în repo):
 | Calitatea codului / mentenanță / arhitectură | **9 / 9 / 9** (a doua și ultima trecere, după grilă) | singura majoră, arborele necommis, s-a închis cu commitul a97de29; minorele (chei de text dinamice fără verificare, fără error boundary, ordinea din `load()`, `plan.pull` dublat, D-id-uri citate doar în 7 teste) pe lista de după versiunea 1 |
 | Trei utilizatori (începător, facilitator, developer sceptic) | 6 / 6, 5 / 6, 6 / 8 | nu condiționează versiunea 1 (decizia 26); criticile reale reparate (D-106–D-116), triajul în `docs/reviews/user-triage-2026-11-19.md` |
 
-Stare (19 noiembrie, 23:50): **versiunea 1 e gata local** după decizia 27. Fiecare evaluator dă cel puțin 9 după grilă,
-toate cerințele au dovezi (în afară de pașii proprietarului: push, verificările la publicare, contractele cu furnizorii,
-pilotul), probele jocului întreg trec toate trei pe commitul a97de29 (tur; Kanban 8041 verificări; Scrum 7287 verificări;
-0 eșecuri). Proprietarul confirmă fiecare commit înainte de pasul următor (cererea proprietarului, 19 noiembrie, 22:38).
+Stare (19 noiembrie, 23:55): **versiunea 1 e gata local** după decizia 27, împinsă pe GitHub (commitul 44007a7) și
+reclonată în `repos/TwoPizzas`. Fiecare evaluator dă cel puțin 9 după grilă, toate cerințele au dovezi (în afară de
+pașii proprietarului: verificările la publicare, contractele cu furnizorii, pilotul), probele jocului întreg trec toate
+trei (tur; Kanban 8041 verificări; Scrum 7287 verificări; 0 eșecuri). Proprietarul confirmă fiecare commit înainte de
+pasul următor (cererea proprietarului, 19 noiembrie, 22:38).
 
 Sarcini rămase, în ordine (regula de oprire: decizia 27; grila: decizia 28):
 1. Gata și verificate: granița Scrum/Kanban, întărirea motorului și a serverului, testele pentru client, reparațiile
@@ -177,7 +179,8 @@ Sarcini rămase, în ordine (regula de oprire: decizia 27; grila: decizia 28):
 5. Gata: a doua verificare a cerințelor (`docs/reviews/requirements-2026-11-19-recheck.md`): din cele 11 parțiale și 2
    lipsă, toate închise în afară de pașii proprietarului (push, pilot).
 6. Gata: `reference/piesa-lipsa/` șters (D-118), cele 38 de rapoarte mutate din `.qa/` în `docs/reviews/`, fără căi
-   locale, adrese sau secrete. În lucru: comanda de commit și push, apoi reclonarea în `repos/TwoPizzas` (proprietarul).
+   locale, adrese sau secrete; commitul 44007a7 împins; reclonarea în `repos/TwoPizzas`, cu `.qa/` și `.remember/`
+   copiate din vechiul folder (în afara git).
 
 Pe lista proprietarului (în afara codului): subdomeniul `twopizzas.faigo.ro` pe gazdă și în Cloudflare; secretele și
 variabilele din repo (`SITE_URL`, `SITE_HOSTS`, `FTP_REMOTE_DIR` etc.); testul pe serverul de staging
@@ -413,11 +416,11 @@ Făcută de un evaluator independent pe toate textele și pe regulile jocului, f
 - O regulă în rețeaua din fața gazdei care scoate antetul de răspuns ce numește panoul gazdei (fișierul de
   configurare din repo nu îl mai numește, fiindcă repo-ul e public).
 
-## La final: reclonare în `repos/TwoPizzas`
-Proprietarul reclonează repo-ul în `repos/TwoPizzas` (lângă `repos/LGTM`) când totul e gata, testat și notat cu cel puțin
-9/10 de toți evaluatorii. Înainte: testul pentru serverul real și rapoartele finale ale evaluatorilor se mută din
-`.qa/` (ignorat de git) în repo (`scripts/` și `docs/reviews/`); tot se commite și se face push; se verifică pe GitHub
-ultimul commit; abia apoi reclonare, `npm install` la rădăcină și în `worker/`, și ștergerea folderului vechi.
+## Reclonarea în `repos/TwoPizzas` (gata, 19 noiembrie)
+Repo-ul a fost reclonat din GitHub în `repos/TwoPizzas` după commitul 44007a7, cu `npm install` la rădăcină și în
+`worker/`. Testul pentru serverul real e în `scripts/`, rapoartele evaluatorilor în `docs/reviews/`. Ce nu e în git
+(capturile și jurnalele din `.qa/`, notele din `.remember/`) a fost copiat din vechiul folder `repos/LGTM`, care apoi
+se șterge.
 
 ## Reguli de lucru convenite
 - Răspunsuri scurte în chat, în română; întrebările cu mai multe variante se pun în dialogul interactiv.
